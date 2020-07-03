@@ -68,7 +68,8 @@ module.exports = {
               },
             }
           ).then((shopResp)=>{
-              shopping.push(shopResp)
+      
+              shopping.push({[product]:shopResp.data.uk.ghs.products.results})
 
           })
         );
@@ -77,7 +78,8 @@ module.exports = {
     return Promise.all(promises).then(() => {
       var responseArray=[];
       shopping.forEach((shop)=>{
-     responseArray.push(shop.data.uk.ghs.products.results);
+        console.log(shop)
+      responseArray.push(shop);
       });
 return responseArray
      });

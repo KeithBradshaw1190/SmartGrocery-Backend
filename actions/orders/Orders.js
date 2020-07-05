@@ -2,18 +2,18 @@ const firebase = require("../../firebase/firebaseInit");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 module.exports = {
-  facebook_orderMain: async function(parameters) {
+  facebook_orderMain: async function(parameters,order_type) {
     var scheduled_date = parameters.conv_order_date.split("T")[0];
     var scheduled_time = parameters.conv_order_time
       .replace("Z", "")
       .split("T")[1]
       .split("+")[0];
     var list_name = parameters.listName;
-    var delivery_location = parameters.deliveryLocation;
+    
     var messengerID = "2977902935566962";
 
     //Set order type & check time availability
-    var orderAvailiable = this.timeAvailability("Delivery", scheduled_time);
+    var orderAvailiable = this.timeAvailability(order_type, scheduled_time);
     if (orderAvailiable) {
       //Return User details
       const userDetails = await this.getUser(messengerID);
@@ -22,14 +22,27 @@ module.exports = {
         list_name,
         messengerID
       );
+var returnedDetails;
 
-      var returnedDetails = this.formatOrderMainResponse(
-        userDetails,
-        shopppinglistDetails,
-        parameters
-      );
+      if (order_type == "Delivery") {
+         returnedDetails = this.formatOrderMainResponse(
+          userDetails,
+          shopppinglistDetails,
+          parameters
+        );
+      } else if (order_type == "Collection") {
+         returnedDetails = this.formatCollectionMainResponse(
+          userDetails,
+          shopppinglistDetails,
+          parameters
+        );
+      }
 
-      console.log(returnedDetails);
+
+
+     
+
+      console.log("Returned Deatails in facebook_ordermain"+returnedDetails);
       return returnedDetails;
     } else {
       return "Not available";
@@ -41,7 +54,7 @@ module.exports = {
     const collection_open = "09:00:00";
     const collection_closed = "21:00:00";
 
-    console.log("RECEIVED TIME IN TIME AVAILABILITY" + time);
+    console.log("RECEIVED TIME IN TIME AVAILABILITY " + time+" for "+order_type);
     if (order_type == "Delivery") {
       if (time >= delivery_open && time <= delivery_closed) {
         return true;
@@ -59,7 +72,7 @@ module.exports = {
 
   getShoppinglist: async function(list_name, messengerID) {
     let listRef = firebase.db.collection("shopping_lists");
-    console.log("Getting shopping list");
+    console.log("Getting shopping list"+list_name+messengerID);
 
     try {
       const snapshot = await listRef
@@ -79,7 +92,7 @@ module.exports = {
 
   getUser: async function(messengerID) {
     let userRef = firebase.db.collection("users");
-    console.log("Getting user");
+    console.log("Getting user" +messengerID);
 
     try {
       const snapshot = await userRef
@@ -158,6 +171,8 @@ module.exports = {
     shoppingListDetails,
     parameters
   ) {
+
+    console.log("format order mainresp: "+JSON.stringify(userDetails))
     var list_name = parameters.listName;
     var delivery_location = parameters.deliveryLocation;
 
@@ -181,5 +196,36 @@ module.exports = {
       orderElements: orderElements
     };
     return returnedDetails;
+  },
+  formatCollectionMainResponse: function(
+    userDetails,
+    shoppingListDetails,
+    parameters
+  ) {
+    //Method Differs from Order as it searches for nearest stores
+    var list_name = parameters.listName;
+    var collection_area = parameters.collection_area;
+
+    var collectionAddress = userDetails[collection_area].receiptFormat;
+    var stripeCustomer_id = userDetails.stripe_customer_id;
+    var userName = userDetails.name;
+
+    var items = shoppingListDetails.items;
+    var user_id = shoppingListDetails.uid;
+    var listPrice = shoppingListDetails.list_price;
+    var listQuantity = shoppingListDetails.list_quantity;
+    var orderElements = this.formatOrderElements(items);
+    var returnedDetails = {
+      deliveryAddress: collectionAddress,
+      stripeCustomer_id: stripeCustomer_id,
+      user_id: user_id,
+      userName: userName,
+      listPrice: listPrice,
+      listQuantity: listQuantity,
+      listName: list_name,
+      orderElements: orderElements
+    };
+    return returnedDetails;
   }
+  
 };

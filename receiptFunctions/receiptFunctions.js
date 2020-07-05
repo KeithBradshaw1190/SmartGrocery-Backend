@@ -43,7 +43,7 @@ module.exports = {
         if (match != null) {
           match = match.toString().replace(/[&\/\\#,+()$~%'":*?<>{} ]/, "");
           if (match != " ") {
-            products.push(match);
+            products.push(match.trim().toLowerCase());
           }
         }
 
@@ -64,12 +64,15 @@ module.exports = {
             `https://dev.tescolabs.com/grocery/products/?query=${product}&offset=0&limit=5`,
             {
               headers: {
-                "Ocp-Apim-Subscription-Key": process.env.TESCO_API_KEY,
+                "Ocp-Apim-Subscription-Key": process.env.TESCO_API_KEY
               },
             }
           ).then((shopResp)=>{
       
-              shopping.push({[product]:shopResp.data.uk.ghs.products.results})
+              shopping.push({
+                "receiptName":product,
+                "matchedItems":shopResp.data.uk.ghs.products.results
+              })
 
           })
         );
@@ -77,6 +80,7 @@ module.exports = {
     });
     return Promise.all(promises).then(() => {
       var responseArray=[];
+      
       shopping.forEach((shop)=>{
         console.log(shop)
       responseArray.push(shop);

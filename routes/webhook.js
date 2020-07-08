@@ -133,9 +133,38 @@ router.post("/api/webhook", express.json(), (req, res) => {
   }
 
   async function recipeGivenInput(agent) {
-    // const food_ingredients = agent.parameters["food_ingredients"];
-    var recipes = await recipeActions.facebook_recipeMain(agent.parameters);
-    return recipeActions.formatRecipeResponse(agent, recipes)
+    const food_ingredients = agent.parameters["food_ingredients"];
+
+          //Handling if a recipe type was given
+    if(agent.parameters['recipe_type']){
+      var recipe_type = agent.parameters['recipe_type'];
+      agent.add(`Here are the ${recipe_type} Recipes I found for ${food_ingredients}`)
+      var recipes = await recipeActions.search_recipe(`${recipe_type} recipe with ${food_ingredients}`);
+     return recipeActions.formatRecipeResponse(agent, recipes)
+    }else{
+      agent.add(`Here are the recipes I found for ${food_ingredients}`)
+      var recipes = await recipeActions.search_recipe(`recipe with ${food_ingredients}`);
+     return recipeActions.formatRecipeResponse(agent, recipes)
+    }
+
+
+  }
+  async function recipeFromShoppingList(agent) {
+  // Agent Parameters will have list name AND OPTIONALLY a type of recipe
+    var ingredientsFromList = await recipeActions.findIngredientsFromShoppingList(agent.parameters);
+
+    //Handling if a recipe type was given
+    if(agent.parameters['recipe_type']){
+      var recipe_type = agent.parameters['recipe_type'];
+      agent.add(`Here are the ${recipe_type} Recipes I found with ${ingredientsFromList[0]} and ${ingredientsFromList[1]}`)
+      var recipes = await recipeActions.search_recipe(`${recipe_type} recipe with ${ingredientsFromList[0]} or ${ingredientsFromList[1]}`);
+     return recipeActions.formatRecipeResponse(agent, recipes)
+    }else{
+      agent.add(`Here are the recipes I found with ${ingredientsFromList[0]} and ${ingredientsFromList[1]}`)
+      var recipes = await recipeActions.search_recipe(`recipe with ${ingredientsFromList[0]} or ${ingredientsFromList[1]}`);
+     return recipeActions.formatRecipeResponse(agent, recipes)
+    }
+
   }
 
   function createFacebookReceipt(paymentIntent, returnedDetails, recipientID) {
@@ -252,6 +281,8 @@ router.post("/api/webhook", express.json(), (req, res) => {
   intentMap.set("Delivery Orders", deliveryOrders);
   intentMap.set("Collection Orders", collectionOrders);
   intentMap.set("Find Recipe-Given Ingredients or Name", recipeGivenInput);
+  intentMap.set("Find Recipe-From Shopping List", recipeFromShoppingList);
+
 
   agent.handleRequest(intentMap);
 });

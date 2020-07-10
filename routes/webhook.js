@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const ordersActions = require("../actions/orders/Orders");
 const recipeActions = require("../actions/recipes/Recipes");
+const listActions = require("../actions/shoppingLists/ShoppingLists")
 
 const axios = require("axios");
 const { WebhookClient } = require("dialogflow-fulfillment");
@@ -167,6 +168,18 @@ router.post("/api/webhook", express.json(), (req, res) => {
 
   }
 
+  async function shoppingListByName(agent){
+    var listItems= await listActions.findShoppingListItemsByName(agent.parameters);
+    console.log(listItems)
+    var agentResponse = await listActions.formatFacebookShoppingListResponse(listItems);
+    agent.add(agentResponse)
+  }
+
+  async function shoppingListByPurchFreq(agent){
+    var agentResponse = await listActions.findShoppingListByFreq(agent.parameters);
+    agent.add(agentResponse)
+  }
+
   function createFacebookReceipt(paymentIntent, returnedDetails, recipientID) {
     var baseListPrice = returnedDetails.listPrice;
     var userName = returnedDetails.userName;
@@ -282,6 +295,10 @@ router.post("/api/webhook", express.json(), (req, res) => {
   intentMap.set("Collection Orders", collectionOrders);
   intentMap.set("Find Recipe-Given Ingredients or Name", recipeGivenInput);
   intentMap.set("Find Recipe-From Shopping List", recipeFromShoppingList);
+  intentMap.set("Show Items in Shopping List(by list name)", shoppingListByName);
+  intentMap.set("Show Items in Shopping List(by purch freq)", shoppingListByPurchFreq);
+
+  
 
 
   agent.handleRequest(intentMap);

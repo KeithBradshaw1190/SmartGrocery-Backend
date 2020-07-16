@@ -1,12 +1,15 @@
 const express = require("express");
 const router = express.Router();
+//Import Action Function
 const ordersActions = require("../actions/orders/Orders");
 const recipeActions = require("../actions/recipes/Recipes");
-const listActions = require("../actions/shoppingLists/ShoppingLists")
+const listActions = require("../actions/shoppingLists/ShoppingLists");
+const userActions = require("../actions/users/Users");
 
 const axios = require("axios");
 const { WebhookClient } = require("dialogflow-fulfillment");
 const { Card, Suggestion, Payload } = require("dialogflow-fulfillment");
+const { SignIn } = require("actions-on-google");
 
 if (process.env.NODE_ENV !== "production") {
   require("dotenv").config();
@@ -22,8 +25,32 @@ router.post("/api/webhook", express.json(), (req, res) => {
   console.log("Dialogflow Request headers: " + JSON.stringify(req.headers));
   console.log("Dialogflow Request body: " + JSON.stringify(req.body));
 
+  let platform_type = req.body.originalDetectIntentRequest.source;
+  console.log("Platform type" + platform_type);
+  const conv = agent.conv();
+
   function welcome(agent) {
-    agent.add("Welcome to my agent! Webhook");
+    agent.add("Welcome to SmartGrocery! Webhook");
+  }
+
+  function ga_welcome(agent) {
+    console.log("ga welcome");
+
+    conv.ask(new SignIn());
+    agent.add(conv);
+  }
+  function sign_in(agent) {
+    console.log("signIn" + JSON.stringify(conv.request));
+
+    let access_token = conv.request.user.accessToken;
+    let verification_status = conv.request.user.userVerificationStatus;
+    if (access_token && verification_status) {
+      agent.add("Great, you're all set to use Smart Grocery!");
+    } else {
+      agent.add(
+        "Hmm,looks like you did not sign in. Unfortunately Smart Grocery access will be limited if you dont sign in to your account"
+      );
+    }
   }
 
   async function deliveryOrders(agent) {
@@ -34,13 +61,18 @@ router.post("/api/webhook", express.json(), (req, res) => {
       agent.parameters["conv_order_time"],
       agent.parameters["conv_order_date"],
     ];
-
+    //find relevant id based on integration type
+    var platform_id;
+    if (platform_type == "google") {
+      
+    } else {
+    }
     //Carry out standard order process
-    var returnedDetails = await ordersActions.facebook_orderMain(
+    var returnedDetails = await ordersActions.orderMain(
       agent.parameters,
-      "Delivery"
+      "Delivery",
+      platform_type
     );
-    console.log("Returned Details" + JSON.stringify(returnedDetails));
     if (returnedDetails == "Not Available") {
       agent.add("That delivery time is not available");
     } else {
@@ -89,7 +121,7 @@ router.post("/api/webhook", express.json(), (req, res) => {
     ];
 
     //Carry out standard order process
-    var returnedDetails = await ordersActions.facebook_orderMain(
+    var returnedDetails = await ordersActions.orderMain(
       agent.parameters,
       "Collection"
     );
@@ -136,48 +168,67 @@ router.post("/api/webhook", express.json(), (req, res) => {
   async function recipeGivenInput(agent) {
     const food_ingredients = agent.parameters["food_ingredients"];
 
-          //Handling if a recipe type was given
-    if(agent.parameters['recipe_type']){
-      var recipe_type = agent.parameters['recipe_type'];
-      agent.add(`Here are the ${recipe_type} Recipes I found for ${food_ingredients}`)
-      var recipes = await recipeActions.search_recipe(`${recipe_type} recipe with ${food_ingredients}`);
-     return recipeActions.formatRecipeResponse(agent, recipes)
-    }else{
-      agent.add(`Here are the recipes I found for ${food_ingredients}`)
-      var recipes = await recipeActions.search_recipe(`recipe with ${food_ingredients}`);
-     return recipeActions.formatRecipeResponse(agent, recipes)
+    //Handling if a recipe type was given
+    if (agent.parameters["recipe_type"]) {
+      var recipe_type = agent.parameters["recipe_type"];
+      agent.add(
+        `Here are the ${recipe_type} Recipes I found for ${food_ingredients}`
+      );
+      var recipes = await recipeActions.search_recipe(
+        `${recipe_type} recipe with ${food_ingredients}`
+      );
+      return recipeActions.formatRecipeResponse(agent, recipes);
+    } else {
+      agent.add(`Here are the recipes I found for ${food_ingredients}`);
+      var recipes = await recipeActions.search_recipe(
+        `recipe with ${food_ingredients}`
+      );
+      return recipeActions.formatRecipeResponse(agent, recipes);
     }
-
-
   }
   async function recipeFromShoppingList(agent) {
-  // Agent Parameters will have list name AND OPTIONALLY a type of recipe
-    var ingredientsFromList = await recipeActions.findIngredientsFromShoppingList(agent.parameters);
+    // Agent Parameters will have list name AND OPTIONALLY a type of recipe
+    var ingredientsFromList = await recipeActions.findIngredientsFromShoppingList(
+      agent.parameters
+    );
 
     //Handling if a recipe type was given
-    if(agent.parameters['recipe_type']){
-      var recipe_type = agent.parameters['recipe_type'];
-      agent.add(`Here are the ${recipe_type} Recipes I found with ${ingredientsFromList[0]} and ${ingredientsFromList[1]}`)
-      var recipes = await recipeActions.search_recipe(`${recipe_type} recipe with ${ingredientsFromList[0]} or ${ingredientsFromList[1]}`);
-     return recipeActions.formatRecipeResponse(agent, recipes)
-    }else{
-      agent.add(`Here are the recipes I found with ${ingredientsFromList[0]} and ${ingredientsFromList[1]}`)
-      var recipes = await recipeActions.search_recipe(`recipe with ${ingredientsFromList[0]} or ${ingredientsFromList[1]}`);
-     return recipeActions.formatRecipeResponse(agent, recipes)
+    if (agent.parameters["recipe_type"]) {
+      var recipe_type = agent.parameters["recipe_type"];
+      agent.add(
+        `Here are the ${recipe_type} Recipes I found with ${ingredientsFromList[0]} and ${ingredientsFromList[1]}`
+      );
+      var recipes = await recipeActions.search_recipe(
+        `${recipe_type} recipe with ${ingredientsFromList[0]} or ${ingredientsFromList[1]}`
+      );
+      return recipeActions.formatRecipeResponse(agent, recipes);
+    } else {
+      agent.add(
+        `Here are the recipes I found with ${ingredientsFromList[0]} and ${ingredientsFromList[1]}`
+      );
+      var recipes = await recipeActions.search_recipe(
+        `recipe with ${ingredientsFromList[0]} or ${ingredientsFromList[1]}`
+      );
+      return recipeActions.formatRecipeResponse(agent, recipes);
     }
-
   }
 
-  async function shoppingListByName(agent){
-    var listItems= await listActions.findShoppingListItemsByName(agent.parameters);
-    console.log(listItems)
-    var agentResponse = await listActions.formatFacebookShoppingListResponse(listItems);
-    agent.add(agentResponse)
+  async function shoppingListByName(agent) {
+    var listItems = await listActions.findShoppingListItemsByName(
+      agent.parameters
+    );
+    console.log(listItems);
+    var agentResponse = await listActions.formatFacebookShoppingListResponse(
+      listItems
+    );
+    agent.add(agentResponse);
   }
 
-  async function shoppingListByPurchFreq(agent){
-    var agentResponse = await listActions.findShoppingListByFreq(agent.parameters);
-    agent.add(agentResponse)
+  async function shoppingListByPurchFreq(agent) {
+    var agentResponse = await listActions.findShoppingListByFreq(
+      agent.parameters
+    );
+    agent.add(agentResponse);
   }
 
   function createFacebookReceipt(paymentIntent, returnedDetails, recipientID) {
@@ -291,15 +342,18 @@ router.post("/api/webhook", express.json(), (req, res) => {
   //Intent Map
   let intentMap = new Map();
   intentMap.set("Default Welcome Intent", welcome);
+  intentMap.set("(GA)Welcome-Account Linking", ga_welcome);
+  intentMap.set("Get Sign in-Google", sign_in);
+
   intentMap.set("Delivery Orders", deliveryOrders);
   intentMap.set("Collection Orders", collectionOrders);
   intentMap.set("Find Recipe-Given Ingredients or Name", recipeGivenInput);
   intentMap.set("Find Recipe-From Shopping List", recipeFromShoppingList);
-  intentMap.set("Show Items in Shopping List(by list name)", shoppingListByName);
-  intentMap.set("Show Items in Shopping List(by purch freq)", shoppingListByPurchFreq);
-
-  
-
+  intentMap.set("Show Items in Shopping List-by list name", shoppingListByName);
+  intentMap.set(
+    "Show Items in Shopping List-by purch freq",
+    shoppingListByPurchFreq
+  );
 
   agent.handleRequest(intentMap);
 });

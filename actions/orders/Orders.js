@@ -2,59 +2,95 @@ const firebase = require("../../firebase/firebaseInit");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 module.exports = {
-  facebook_orderMain: async function(parameters,order_type) {
+  orderMain: async function (parameters, order_type, platform_type, id) {
     var scheduled_date = parameters.conv_order_date.split("T")[0];
     var scheduled_time = parameters.conv_order_time
       .replace("Z", "")
       .split("T")[1]
       .split("+")[0];
     var list_name = parameters.listName;
-    
+
     var messengerID = "2977902935566962";
-
-    //Set order type & check time availability
     var orderAvailiable = this.timeAvailability(order_type, scheduled_time);
-    if (orderAvailiable) {
-      //Return User details
-      const userDetails = await this.getUser(messengerID);
-      //Return shopping list details
-      const shopppinglistDetails = await this.getShoppinglist(
-        list_name,
-        messengerID
-      );
-var returnedDetails;
 
-      if (order_type == "Delivery") {
-         returnedDetails = this.formatOrderMainResponse(
-          userDetails,
-          shopppinglistDetails,
-          parameters
+    if (platform_type == "google") {
+      //Set order type & check time availability
+      if (orderAvailiable) {
+        //Return User details
+        const userDetails = await this.getUser(messengerID);
+        //Return shopping list details
+        const shopppinglistDetails = await this.getShoppinglist(
+          list_name,
+          messengerID
         );
-      } else if (order_type == "Collection") {
-         returnedDetails = this.formatCollectionMainResponse(
-          userDetails,
-          shopppinglistDetails,
-          parameters
+        var returnedDetails;
+
+        if (order_type == "Delivery") {
+          returnedDetails = this.formatOrderMainResponse(
+            userDetails,
+            shopppinglistDetails,
+            parameters
+          );
+        } else if (order_type == "Collection") {
+          returnedDetails = this.formatCollectionMainResponse(
+            userDetails,
+            shopppinglistDetails,
+            parameters
+          );
+        }
+
+        console.log(
+          "Returned Deatails in facebook_ordermain" + returnedDetails
         );
+        return returnedDetails;
+      } else {
+        return "Not available";
       }
-
-
-
-     
-
-      console.log("Returned Deatails in facebook_ordermain"+returnedDetails);
-      return returnedDetails;
     } else {
-      return "Not available";
+      //Facebook Platform
+      //Set order type & check time availability
+      if (orderAvailiable) {
+        //Return User details
+        const userDetails = await this.getUser(messengerID);
+        //Return shopping list details
+        const shopppinglistDetails = await this.getShoppinglist(
+          list_name,
+          messengerID
+        );
+        var returnedDetails;
+
+        if (order_type == "Delivery") {
+          returnedDetails = this.formatOrderMainResponse(
+            userDetails,
+            shopppinglistDetails,
+            parameters
+          );
+        } else if (order_type == "Collection") {
+          returnedDetails = this.formatCollectionMainResponse(
+            userDetails,
+            shopppinglistDetails,
+            parameters
+          );
+        }
+
+        console.log(
+          "Returned Deatails in facebook_ordermain" + returnedDetails
+        );
+        return returnedDetails;
+      } else {
+        return "Not available";
+      }
     }
   },
-  timeAvailability: function(order_type, time) {
+  timeAvailability: function (order_type, time) {
     const delivery_open = "09:00:00";
     const delivery_closed = "20:00:00";
     const collection_open = "09:00:00";
     const collection_closed = "21:00:00";
 
-    console.log("RECEIVED TIME IN TIME AVAILABILITY " + time+" for "+order_type);
+    console.log(
+      "RECEIVED TIME IN TIME AVAILABILITY " + time + " for " + order_type
+    );
     if (order_type == "Delivery") {
       if (time >= delivery_open && time <= delivery_closed) {
         return true;
@@ -70,9 +106,9 @@ var returnedDetails;
     }
   },
 
-  getShoppinglist: async function(list_name, messengerID) {
+  getShoppinglist: async function (list_name, messengerID) {
     let listRef = firebase.db.collection("shopping_lists");
-    console.log("Getting shopping list"+list_name+messengerID);
+    console.log("Getting shopping list" + list_name + messengerID);
 
     try {
       const snapshot = await listRef
@@ -80,7 +116,7 @@ var returnedDetails;
         .where("listName", "==", list_name)
         .get();
       var shoppingList;
-      snapshot.forEach(doc => {
+      snapshot.forEach((doc) => {
         console.log("Got Shopping list");
         shoppingList = doc.data();
       });
@@ -90,17 +126,16 @@ var returnedDetails;
     }
   },
 
-  getUser: async function(messengerID) {
+  getUser: async function (messengerID) {
     let userRef = firebase.db.collection("users");
-    console.log("Getting user" +messengerID);
+    console.log("Getting user" + messengerID);
 
     try {
       const snapshot = await userRef
         .where("messengerID", "==", messengerID)
         .get();
       var user;
-      snapshot.forEach(doc => {
-        console.log(doc.data().homeAddress);
+      snapshot.forEach((doc) => {
         user = doc.data();
       });
       return user;
@@ -110,7 +145,7 @@ var returnedDetails;
     }
   },
 
-  chargeCard: async function(baseListPrice, stripe_customer_id) {
+  chargeCard: async function (baseListPrice, stripe_customer_id) {
     //Set Payment amounts(paymentAmount-the total to charge to a customer)
     var paymentAmount = Number(baseListPrice);
     var deliveryAmount = 0;
@@ -140,39 +175,38 @@ var returnedDetails;
       customer: stripe_customer_id,
       payment_method: paymentMethodId,
       off_session: true,
-      confirm: true
+      confirm: true,
     });
     return paymentIntent;
   },
-  getPaymentId: async function(stripe_customer_id) {
+  getPaymentId: async function (stripe_customer_id) {
     const paymentMethods = await stripe.paymentMethods.list({
       customer: stripe_customer_id,
-      type: "card"
+      type: "card",
     });
     return paymentMethods;
   },
-  formatOrderElements: function(items) {
+  formatOrderElements: function (items) {
     formatted = [];
-    items.forEach(item => {
+    items.forEach((item) => {
       var object = {
         title: item.name,
         subtitle: item.department,
         quantity: item.quantity,
         price: item.price,
         currency: "EUR",
-        image_url: item.img
+        image_url: item.img,
       };
       formatted.push(object);
     });
     return formatted;
   },
-  formatOrderMainResponse: function(
+  formatOrderMainResponse: function (
     userDetails,
     shoppingListDetails,
     parameters
   ) {
-
-    console.log("format order mainresp: "+JSON.stringify(userDetails))
+    console.log("format order mainresp: " + JSON.stringify(userDetails));
     var list_name = parameters.listName;
     var delivery_location = parameters.deliveryLocation;
 
@@ -193,11 +227,11 @@ var returnedDetails;
       listPrice: listPrice,
       listQuantity: listQuantity,
       listName: list_name,
-      orderElements: orderElements
+      orderElements: orderElements,
     };
     return returnedDetails;
   },
-  formatCollectionMainResponse: function(
+  formatCollectionMainResponse: function (
     userDetails,
     shoppingListDetails,
     parameters
@@ -223,9 +257,8 @@ var returnedDetails;
       listPrice: listPrice,
       listQuantity: listQuantity,
       listName: list_name,
-      orderElements: orderElements
+      orderElements: orderElements,
     };
     return returnedDetails;
-  }
-  
+  },
 };

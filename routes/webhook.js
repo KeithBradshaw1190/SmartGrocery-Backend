@@ -9,7 +9,13 @@ const userActions = require("../actions/users/Users");
 const axios = require("axios");
 const { WebhookClient } = require("dialogflow-fulfillment");
 const { Card, Suggestion, Payload } = require("dialogflow-fulfillment");
-const { SignIn } = require("actions-on-google");
+const {
+  SignIn,
+  BasicCard,
+  Button,
+  Image,
+  SimpleResponse,
+} = require("actions-on-google");
 
 if (process.env.NODE_ENV !== "production") {
   require("dotenv").config();
@@ -55,6 +61,8 @@ router.post("/api/webhook", express.json(), (req, res) => {
 
   async function deliveryOrders(agent) {
     console.log("Parameters" + JSON.stringify(agent.parameters));
+    let access_token = conv.request.user.accessToken;
+
     const [listName, deliveryLocation, conv_order_time, conv_order_date] = [
       agent.parameters["listName"],
       agent.parameters["deliveryLocation"],
@@ -64,14 +72,19 @@ router.post("/api/webhook", express.json(), (req, res) => {
     //find relevant id based on integration type
     var platform_id;
     if (platform_type == "google") {
-      
+      platform_id = await userActions.findGoogleUserByToken(access_token);
+      console.log("platid" + platform_id.sub);
     } else {
+      platform_id = {
+        sub: "2977902935566962",
+      };
     }
     //Carry out standard order process
     var returnedDetails = await ordersActions.orderMain(
       agent.parameters,
       "Delivery",
-      platform_type
+      platform_type,
+      platform_id.sub
     );
     if (returnedDetails == "Not Available") {
       agent.add("That delivery time is not available");
@@ -89,22 +102,64 @@ router.post("/api/webhook", express.json(), (req, res) => {
       );
 
       if (paymentIntent.status == "succeeded") {
-        console.log("Payment status success");
-        //Payload receipt
-        facebook_payload = createFacebookReceipt(
-          paymentIntent,
-          returnedDetails,
-          "3178982578828059"
-        );
-        //Send Payload receipt
-        axios
-          .post(
-            `https://graph.facebook.com/v2.6/me/messages?access_token=${process.env.FACEBOOK_PAGE_ACCESS_TOKEN}`,
-            facebook_payload
-          )
-          .then(function (response) {
-            console.log("sent successfully" + response);
-          });
+        if (platform_type == "google") {
+          console.log("success google");
+          const conv = agent.conv();
+
+          conv.ask(
+            new SimpleResponse({
+              speech:
+                `Delivery Scheduled Successfully. ` ,
+              text:
+              'Delivery Scheduled Successfully.' ,
+            })
+          );
+          var orderSummary = ordersActions.createGoogleDeliveryResponse(
+            paymentIntent,
+            returnedDetails
+          );
+          conv.ask(orderSummary);
+          //   conv.ask(new BasicCard({
+          //   text: `This is a basic card.  Text in a basic card can include "quotes" and
+          //   most other unicode characters including emojis.  Basic cards also support
+          //   some markdown formatting like *emphasis* or _italics_, **strong** or
+          //   __bold__, and ***bold itallic*** or ___strong emphasis___ as well as other
+          //   things like line  \nbreaks`, // Note the two spaces before '\n' required for
+          //                                // a line break to be rendered in the card.
+          //   subtitle: 'This is a subtitle',
+          //   title: 'Title: this is a title',
+          //   buttons: new Button({
+          //     title: 'Delivery Info',
+          //     url: 'https://assistant.google.com/',
+          //   }),
+          //   image: new Image({
+          //     url: 'https://storage.googleapis.com/actionsresources/logo_assistant_2x_64dp.png',
+          //     alt: 'Success',
+          //   }),
+          //   display: 'CROPPED',
+          // }));
+          agent.add(conv);
+        } else if (platform_type == "facebook") {
+          //Facebook Response
+          console.log("Payment status success");
+          facebook_payload = createFacebookReceipt(
+            paymentIntent,
+            returnedDetails,
+            "3178982578828059"
+          );
+          //Send Payload receipt via facebook
+          axios
+            .post(
+              `https://graph.facebook.com/v2.6/me/messages?access_token=${process.env.FACEBOOK_PAGE_ACCESS_TOKEN}`,
+              facebook_payload
+            )
+            .then(function (response) {
+              console.log("sent successfully" + response);
+              agent.add(
+                "More order information can be found on the SmartGrocery Dashboard!"
+              );
+            });
+        }
       } else {
         console.log(paymentIntent.status);
         agent.add("Error on Charging Card" + paymentIntent.status);

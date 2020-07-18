@@ -1,8 +1,11 @@
 const firebase = require("../../firebase/firebaseInit");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+const userActions = require("../../actions/users/Users");
+const { SignIn, BasicCard,Button, Image, SimpleResponse, } = require("actions-on-google");
+const { json } = require("body-parser");
 
 module.exports = {
-  orderMain: async function (parameters, order_type, platform_type, id) {
+  orderMain: async function (parameters, order_type, platform_type,platform_id) {
     var scheduled_date = parameters.conv_order_date.split("T")[0];
     var scheduled_time = parameters.conv_order_time
       .replace("Z", "")
@@ -10,18 +13,20 @@ module.exports = {
       .split("+")[0];
     var list_name = parameters.listName;
 
-    var messengerID = "2977902935566962";
+    //var messengerID = "2977902935566962";
     var orderAvailiable = this.timeAvailability(order_type, scheduled_time);
 
     if (platform_type == "google") {
+      console.log("platform type"+ platform_type)
       //Set order type & check time availability
       if (orderAvailiable) {
         //Return User details
-        const userDetails = await this.getUser(messengerID);
+        const userDetails = await userActions.findFirebaseUser(platform_id,platform_type);
         //Return shopping list details
+        var uid = userDetails.uid;
         const shopppinglistDetails = await this.getShoppinglist(
           list_name,
-          messengerID
+          uid
         );
         var returnedDetails;
 
@@ -29,7 +34,8 @@ module.exports = {
           returnedDetails = this.formatOrderMainResponse(
             userDetails,
             shopppinglistDetails,
-            parameters
+            parameters,
+            platform_type
           );
         } else if (order_type == "Collection") {
           returnedDetails = this.formatCollectionMainResponse(
@@ -106,13 +112,13 @@ module.exports = {
     }
   },
 
-  getShoppinglist: async function (list_name, messengerID) {
+  getShoppinglist: async function (list_name, uid) {
     let listRef = firebase.db.collection("shopping_lists");
-    console.log("Getting shopping list" + list_name + messengerID);
+    console.log("Getting shopping list" + list_name + uid);
 
     try {
       const snapshot = await listRef
-        .where("messengerID", "==", messengerID)
+        .where("uid", "==", uid)
         .where("listName", "==", list_name)
         .get();
       var shoppingList;
@@ -126,24 +132,24 @@ module.exports = {
     }
   },
 
-  getUser: async function (messengerID) {
-    let userRef = firebase.db.collection("users");
-    console.log("Getting user" + messengerID);
+  // getUser: async function (messengerID) {
+  //   let userRef = firebase.db.collection("users");
+  //   console.log("Getting user" + messengerID);
 
-    try {
-      const snapshot = await userRef
-        .where("messengerID", "==", messengerID)
-        .get();
-      var user;
-      snapshot.forEach((doc) => {
-        user = doc.data();
-      });
-      return user;
-    } catch (err) {
-      console.log("User error" + err);
-      return Promise.reject("No such document");
-    }
-  },
+  //   try {
+  //     const snapshot = await userRef
+  //       .where("messengerID", "==", messengerID)
+  //       .get();
+  //     var user;
+  //     snapshot.forEach((doc) => {
+  //       user = doc.data();
+  //     });
+  //     return user;
+  //   } catch (err) {
+  //     console.log("User error" + err);
+  //     return Promise.reject("No such document");
+  //   }
+  // },
 
   chargeCard: async function (baseListPrice, stripe_customer_id) {
     //Set Payment amounts(paymentAmount-the total to charge to a customer)
@@ -201,16 +207,65 @@ module.exports = {
     });
     return formatted;
   },
+  createGoogleDeliveryResponse:function(paymentIntent, returnedDetails){
+    var baseListPrice = returnedDetails.listPrice;
+    var userName = returnedDetails.userName;
+    var listQuantity = returnedDetails.listQuantity;
+    var listName = returnedDetails.listName;
+    var formattedListName= listName.charAt(0).toUpperCase() + listName.slice(1);
+    var orderElements = returnedDetails.orderElements;
+    var deliveryAddress = returnedDetails.deliveryAddress;
+    var totalAmount = paymentIntent.amount / 100;
+    var receiptUrl = paymentIntent.charges.data[0].receipt_url;
+    var timestamp = paymentIntent.created;
+    var payment_method_details =
+      paymentIntent.charges.data[0].payment_method_details;
+    var payment_method =
+      payment_method_details.card.brand +
+      " " +
+      payment_method_details.card.last4;
+
+console.log(JSON.stringify(deliveryAddress))
+var card=new BasicCard({
+      text: `__Order Summary__  \n
+      🛒 ${listQuantity} Items  \n
+      💳 Payment Method: ${payment_method}  \n
+      🚚 Delivery Address: ${deliveryAddress}  \n`, // Note the two spaces before '\n' required for
+                                   // a line break to be rendered in the card.
+      subtitle: 'Total Price (incl delivery): €'+totalAmount,
+      title: 'Delivery Scheduled: '+formattedListName,
+      buttons:[ new Button({
+        title: 'Delivery Info',
+        url: 'https://assistant.google.com/',
+      }),new Button({
+        title: 'Receipt',
+        url: receiptUrl,
+      })],
+      image: new Image({
+        url: 'https://www.netclipart.com/pp/m/308-3089576_gropronto-grocery-delivery.png',
+        alt: 'Success',
+      }),
+      display: 'CROPPED',
+    });
+    return card
+
+  },
   formatOrderMainResponse: function (
     userDetails,
     shoppingListDetails,
-    parameters
+    parameters,platform_type
   ) {
     console.log("format order mainresp: " + JSON.stringify(userDetails));
     var list_name = parameters.listName;
     var delivery_location = parameters.deliveryLocation;
 
-    var deliveryAddress = userDetails[delivery_location].receiptFormat;
+    var deliveryAddress;
+    if(platform_type=="google"){
+      deliveryAddress= userDetails[delivery_location].formatted;
+    }else{
+      deliveryAddress= userDetails[delivery_location].receiptFormat;
+    }
+    
     var stripeCustomer_id = userDetails.stripe_customer_id;
     var userName = userDetails.name;
 

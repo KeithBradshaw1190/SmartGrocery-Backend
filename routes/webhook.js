@@ -49,12 +49,13 @@ router.post("/api/webhook", express.json(), (req, res) => {
     console.log("signIn" + JSON.stringify(conv.request));
 
     let access_token = conv.request.user.accessToken;
+    console.log("access token " + access_token);
     let verification_status = conv.request.user.userVerificationStatus;
     if (access_token && verification_status) {
       agent.add("Great, you're all set to use Smart Grocery!");
     } else {
       agent.add(
-        "Hmm,looks like you did not sign in. Unfortunately Smart Grocery access will be limited if you dont sign in to your account"
+        "Unfortunately Smart Grocery access will be limited if you dont sign in to your account"
       );
     }
   }
@@ -108,10 +109,8 @@ router.post("/api/webhook", express.json(), (req, res) => {
 
           conv.ask(
             new SimpleResponse({
-              speech:
-                `Delivery Scheduled Successfully. ` ,
-              text:
-              'Delivery Scheduled Successfully.' ,
+              speech: `Delivery Scheduled Successfully. `,
+              text: "Delivery Scheduled Successfully.",
             })
           );
           var orderSummary = ordersActions.createGoogleDeliveryResponse(
@@ -119,25 +118,6 @@ router.post("/api/webhook", express.json(), (req, res) => {
             returnedDetails
           );
           conv.ask(orderSummary);
-          //   conv.ask(new BasicCard({
-          //   text: `This is a basic card.  Text in a basic card can include "quotes" and
-          //   most other unicode characters including emojis.  Basic cards also support
-          //   some markdown formatting like *emphasis* or _italics_, **strong** or
-          //   __bold__, and ***bold itallic*** or ___strong emphasis___ as well as other
-          //   things like line  \nbreaks`, // Note the two spaces before '\n' required for
-          //                                // a line break to be rendered in the card.
-          //   subtitle: 'This is a subtitle',
-          //   title: 'Title: this is a title',
-          //   buttons: new Button({
-          //     title: 'Delivery Info',
-          //     url: 'https://assistant.google.com/',
-          //   }),
-          //   image: new Image({
-          //     url: 'https://storage.googleapis.com/actionsresources/logo_assistant_2x_64dp.png',
-          //     alt: 'Success',
-          //   }),
-          //   display: 'CROPPED',
-          // }));
           agent.add(conv);
         } else if (platform_type == "facebook") {
           //Facebook Response
@@ -232,19 +212,34 @@ router.post("/api/webhook", express.json(), (req, res) => {
       var recipes = await recipeActions.search_recipe(
         `${recipe_type} recipe with ${food_ingredients}`
       );
-      return recipeActions.formatRecipeResponse(agent, recipes);
+      return recipeActions.formatRecipeResponse(agent, recipes, platform_type);
     } else {
       agent.add(`Here are the recipes I found for ${food_ingredients}`);
       var recipes = await recipeActions.search_recipe(
         `recipe with ${food_ingredients}`
       );
-      return recipeActions.formatRecipeResponse(agent, recipes);
+      return recipeActions.formatRecipeResponse(agent, recipes, platform_type);
     }
   }
   async function recipeFromShoppingList(agent) {
+    let conv = agent.conv();
+    let access_token = conv.request.user.accessToken;
+
     // Agent Parameters will have list name AND OPTIONALLY a type of recipe
+
+    //First find user UID
+    var user;
+    if (platform_type == "google") {
+      var gUser = await userActions.findGoogleUserByToken(access_token);
+      user = await userActions.findFirebaseUser(gUser.sub, platform_type);
+    } else if (platform_type == "facebook") {
+      const messengerID = "2977902935566962";
+
+      user = await userActions.findFirebaseUser(messengerID, platform_type);
+    }
     var ingredientsFromList = await recipeActions.findIngredientsFromShoppingList(
-      agent.parameters
+      agent.parameters,
+      user.uid
     );
 
     //Handling if a recipe type was given
@@ -256,7 +251,7 @@ router.post("/api/webhook", express.json(), (req, res) => {
       var recipes = await recipeActions.search_recipe(
         `${recipe_type} recipe with ${ingredientsFromList[0]} or ${ingredientsFromList[1]}`
       );
-      return recipeActions.formatRecipeResponse(agent, recipes);
+      return recipeActions.formatRecipeResponse(agent, recipes, platform_type);
     } else {
       agent.add(
         `Here are the recipes I found with ${ingredientsFromList[0]} and ${ingredientsFromList[1]}`
@@ -264,7 +259,7 @@ router.post("/api/webhook", express.json(), (req, res) => {
       var recipes = await recipeActions.search_recipe(
         `recipe with ${ingredientsFromList[0]} or ${ingredientsFromList[1]}`
       );
-      return recipeActions.formatRecipeResponse(agent, recipes);
+      return recipeActions.formatRecipeResponse(agent, recipes, platform_type);
     }
   }
 

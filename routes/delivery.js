@@ -72,7 +72,55 @@ router.get("/api/delivery-time", (req, res) => {
         deliveryClosed: delivery_closed
     });
 });
+//Endpoint to handle delivery payments from UI
+router.post("/api/delivery_updated/:user_id", async (req, res, next) => {
+    var userID = req.params.user_id;
+    // var order_info_name = req.body.order_info.name;
+    // var delivery_time = req.body.delivery_time;
+    // var delivery_date = req.body.delivery_date;
+    // var recipeProductsObj = req.body.recipeObj
+    var paymentAmount =  Number(12.00) * 100
+  
+   await getStripeCustomerID(userID).then(stripeCustomerID=> {
+        var paymentMethodId;
+        getPaymentId(stripeCustomerID).then((response) => {
+            console.log("THE RES" + JSON.stringify(response));
+            paymentMethodId = response.data[0].id;
+            console.log("payment method in statement " + paymentMethodId)
 
+            stripe.paymentIntents.create({
+                amount: paymentAmount,
+                currency: 'eur',
+                customer: stripeCustomerID,
+                payment_method: paymentMethodId,
+                off_session: true,
+                confirm: true,
+            }).then((paymentIntent) => {
+                //console.log("PaymentIntent" + JSON.stringify(paymentIntent))
+                // Pass the failed PaymentIntent to your client from your server
+                if (paymentIntent.status === 'succeeded') {
+                    console.log('Payment succeeded')
+                    res.sendStatus(201)
+                } else {
+                    console.log('Payment did not succeed  ' + paymentIntent.status)
+                    res.json(paymentIntent.status)
+                }
+
+            }).catch((err) => {
+                console.log('Error in  paymentIntents ' + err);
+
+                // res.sendStatus(400).json(err);
+            });
+        }).catch((err) => {
+            console.log("Err when calling getPaymentId: " + err)
+        });
+
+    }).catch((err) => {
+        console.log("Err when calling getStripeCustomerID: " + err)
+    });
+})
+
+//Endpoint to handle delivery payments from Dialog flow
 router.post("/api/delivery/:user_id", async (req, res, next) => {
     var userID = req.params.user_id;
     var listName = req.body.list_name;
@@ -321,8 +369,8 @@ router.post("/api/delivery/:user_id", async (req, res, next) => {
 // Delete an entry
 router.delete("/api/delivery/:id", (req, res) => {
     DeliveryModel.findOneAndDelete({
-            _id: req.params.id
-        })
+        _id: req.params.id
+    })
         .then(() =>
             res.status(200).json({
                 success: true
@@ -338,10 +386,10 @@ router.delete("/api/delivery/:id", (req, res) => {
 // Update an entry
 router.put("/api/delivery/:id", (req, res) => {
     DeliveryModel.findOneAndUpdate({
-                _id: req.params.id
-            },
-            req.body
-        )
+        _id: req.params.id
+    },
+        req.body
+    )
         .then(() =>
             res.status(204).json({
                 success: true
@@ -360,6 +408,58 @@ function getPaymentId(stripe_customer_id) {
         type: 'card'
     });
     return paymentMethods
+};
+function getProductsFromDB(orderInfo, userID) {
+    var listRef;
+    var listObject;
+
+    listRef = fb.db.collection("shopping_lists");
+    listRef.where("userID", "==", userID).where("listName", "==", orderInfo.name).get()
+        .then(snapshot => {
+            if (snapshot.empty) {
+                res.sendStatus(404);
+                console.log("No matching documents.");
+                return;
+            } else {
+                snapshot.forEach(d => {
+                    listObject = {
+                        listID: d.id,
+                        list_price: d.data().list_price,
+                        list_quantity: d.data().list_quantity
+                    }
+
+                })
+            }
+        }).catch((err) => {
+            res.sendStatus(404);
+            console.log("DB Err " + err);
+        })
+
+
 }
 
+function getStripeCustomerID(userID) {
+    var stripe_customer_id;
+    let listRef = fb.db.collection("users").doc(userID);
+    return listRef.get()
+        .then((doc) => {
+            if (!doc.exists) {
+                console.log('No such document!');
+
+            } else {
+                stripe_customer_id = doc.data().stripe_customer_id
+ 
+            }
+            console.log(" customer id " + stripe_customer_id)
+            return stripe_customer_id;
+        }
+
+        ).catch((err) => {
+            console.log("error in getStripeCustomerID " + err);
+            res.json({
+                messenge: "Error getting Stripe Customer ID " + err
+            })
+        })
+
+}
 module.exports = router;

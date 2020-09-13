@@ -1,8 +1,11 @@
-const DeliveryModel = require("../models/delivery.model");
+// const DeliveryModel = require("../models/delivery.model");
+const DeliveryModelUpdate = require("../models/delivery.model_update");
+
 const express = require("express");
 const mongoose = require("mongoose");
 const router = express.Router();
 const fb = require("../firebase/firebaseInit");
+const e = require("express");
 // Import Stripe
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 //24 Hour Clock(7am to 9pm)
@@ -74,50 +77,80 @@ router.get("/api/delivery-time", (req, res) => {
 });
 //Endpoint to handle delivery payments from UI
 router.post("/api/delivery_updated/:user_id", async (req, res, next) => {
+    
     var userID = req.params.user_id;
-    // var order_info_name = req.body.order_info.name;
-    // var delivery_time = req.body.delivery_time;
-    // var delivery_date = req.body.delivery_date;
-    // var recipeProductsObj = req.body.recipeObj
-    var paymentAmount =  Number(12.00) * 100
-  
-   await getStripeCustomerID(userID).then(stripeCustomerID=> {
-        var paymentMethodId;
-        getPaymentId(stripeCustomerID).then((response) => {
-            console.log("THE RES" + JSON.stringify(response));
-            paymentMethodId = response.data[0].id;
-            console.log("payment method in statement " + paymentMethodId)
+    await addDeliveryToDB (userID, req.body).then((delivery) => {
+        var paymentAmount = (Number(delivery.delivery_price)) +  (Number(req.body.order_price).toFixed(2)*100)
+        delivery.total_price =paymentAmount;
+        delivery.payment_status = "Not Started"
+        console.log("Delivery Obj "+delivery)
+        console.log("Delivery paymentAmount  "+paymentAmount)
 
-            stripe.paymentIntents.create({
-                amount: paymentAmount,
-                currency: 'eur',
-                customer: stripeCustomerID,
-                payment_method: paymentMethodId,
-                off_session: true,
-                confirm: true,
-            }).then((paymentIntent) => {
-                //console.log("PaymentIntent" + JSON.stringify(paymentIntent))
-                // Pass the failed PaymentIntent to your client from your server
-                if (paymentIntent.status === 'succeeded') {
-                    console.log('Payment succeeded')
-                    res.sendStatus(201)
-                } else {
-                    console.log('Payment did not succeed  ' + paymentIntent.status)
-                    res.json(paymentIntent.status)
-                }
+       // var paymentAmount = Number(12.00) * 100
 
+        return getStripeCustomerID(userID).then(stripeCustomerID => {
+            delivery.payment_status = "Pending"
+
+            var paymentMethodId;
+            getPaymentId(stripeCustomerID).then((response) => {
+                delivery.payment_status = "In Progress"
+                console.log("THE RES" + JSON.stringify(response));
+                paymentMethodId = response.data[0].id;
+                console.log("payment method in statement " + paymentMethodId)
+                //Creeate the recipe order in DB
+                stripe.paymentIntents.create({
+                    amount: paymentAmount,
+                    currency: 'eur',
+                    customer: stripeCustomerID,
+                    payment_method: paymentMethodId,
+                    off_session: true,
+                    confirm: true,
+                }).then((paymentIntent) => {
+                    //console.log("PaymentIntent" + JSON.stringify(paymentIntent))
+                    // Pass the failed PaymentIntent to your client from your server
+                    if (paymentIntent.status === 'succeeded') {
+                        console.log('Payment succeeded')
+                        delivery.payment_status = "Success"
+                        // res.sendStatus(201)
+                    } else {
+                        console.log('Payment did not succeed  ' + paymentIntent.status)
+                        delivery.payment_status = "Failed"
+
+                        // res.json(paymentIntent.status)
+                    }
+                    delivery.save().then(() => {
+                        if (delivery.payment_status == "Failed") {
+                            res.json({
+                                message: "Payment Error"
+                            }
+                            )
+                        } else if (delivery.payment_status == "Success") {
+                            res.json({
+                                message: "Payment Success"
+                            }
+                            )
+                        } else {
+                            console.log("Something odd happened in payment: " + delivery.payment_status);
+                        }
+                    }).catch((err) => {
+                        res.json({
+                            message: "Error Occured: " + err
+                        }
+                        )
+                    })
+                }).catch((err) => {
+                    console.log('Error in  paymentIntents ' + err);
+
+                    // res.sendStatus(400).json(err);
+                });
             }).catch((err) => {
-                console.log('Error in  paymentIntents ' + err);
-
-                // res.sendStatus(400).json(err);
+                console.log("Err when calling getPaymentId: " + err)
             });
-        }).catch((err) => {
-            console.log("Err when calling getPaymentId: " + err)
-        });
 
-    }).catch((err) => {
-        console.log("Err when calling getStripeCustomerID: " + err)
-    });
+        }).catch((err) => {
+            console.log("Err when calling getStripeCustomerID: " + err)
+        });
+    })
 })
 
 //Endpoint to handle delivery payments from Dialog flow
@@ -448,7 +481,7 @@ function getStripeCustomerID(userID) {
 
             } else {
                 stripe_customer_id = doc.data().stripe_customer_id
- 
+
             }
             console.log(" customer id " + stripe_customer_id)
             return stripe_customer_id;
@@ -461,5 +494,34 @@ function getStripeCustomerID(userID) {
             })
         })
 
+}
+async function addDeliveryToDB(userID, data) {
+    var response;
+    // var order_info_name = data.order_info.name;
+    // var order_info_type = data.order_info.type;
+    var orderInfo = data.orderInfo;
+    var orderSource = data.order_source;
+    var deliveryTime = data.delivery_time;
+    var deliveryDate = data.delivery_date;
+    var itemQuantity = data.items_quantity;
+    var messengerID = data.messengerID;
+
+    var recipeProductsObj = data.items_info
+    var deliveryPrice = Number(1.50)*100;
+
+
+    var delivery = new DeliveryModelUpdate({
+        customer_id: userID,
+        order_source: orderSource,
+        order_info: orderInfo,
+        items_info: recipeProductsObj,
+        delivery_time: deliveryTime,
+        delivery_date: deliveryDate,
+        delivery_price: deliveryPrice,
+        items_quantity: itemQuantity,
+        messengerID: messengerID
+    });
+
+    return delivery;
 }
 module.exports = router;

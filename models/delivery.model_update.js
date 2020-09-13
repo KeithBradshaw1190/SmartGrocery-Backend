@@ -15,11 +15,12 @@ const DeliverySchemaUpdate = new mongoose.Schema({
         type: String
     },
     order_price: {
-        type: String
+        type: Number
     },
     delivery_price: {
-        type: String
+        type: Number
     },
+    total_price:Number,
     items_quantity: {
         type: Number
     },

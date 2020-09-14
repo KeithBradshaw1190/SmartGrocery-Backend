@@ -106,7 +106,7 @@ router.post("/api/delivery_updated/:user_id", async (req, res, next) => {
                     off_session: true,
                     confirm: true,
                 }).then((paymentIntent) => {
-                    //console.log("PaymentIntent" + JSON.stringify(paymentIntent))
+                    console.log("PaymentIntent: " + JSON.stringify(paymentIntent))
                     // Pass the failed PaymentIntent to your client from your server
                     if (paymentIntent.status === 'succeeded') {
                         console.log('Payment succeeded')
@@ -121,12 +121,15 @@ router.post("/api/delivery_updated/:user_id", async (req, res, next) => {
                     delivery.save().then(() => {
                         if (delivery.payment_status == "Failed") {
                             res.json({
-                                message: "Payment Error"
+                                message: "Payment Error",
+                                information:paymentIntent
                             }
                             )
                         } else if (delivery.payment_status == "Success") {
                             res.json({
-                                message: "Payment Success"
+                                message: "Payment Success",
+                                receipt:paymentIntent.charges.data[0].receipt_url
+
                             }
                             )
                         } else {

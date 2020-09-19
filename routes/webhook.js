@@ -63,7 +63,6 @@ router.post("/api/webhook", express.json(), (req, res) => {
   async function deliveryOrders(agent) {
     console.log("Parameters" + JSON.stringify(agent.parameters));
     let access_token = conv.request.user.accessToken;
-    var data={};
     const [listName, deliveryLocation, conv_order_time, conv_order_date] = [
       agent.parameters["listName"],
       agent.parameters["deliveryLocation"],
@@ -106,20 +105,7 @@ router.post("/api/webhook", express.json(), (req, res) => {
       );
 
       if (paymentIntent.status == "succeeded") {
-        // var data = {
-        //   customer_id: userID,
-        //   order_source: data.source,
-        //   order_price: data.orderPrice,
-        //   order_info: {
-        //     type: "Shopping List",
-        //     name: data.listName,
-        //   },
-        //   items_info: data.items,
-        //   delivery_time: data.delivery_time,
-        //   delivery_date: data.delivery_date,
-        //   items_quantity: data.items_quantity
-        // };
-       // saveOrderToDB(type,data,userID);
+        saveOrderToDB(returnedDetails,platform_type, conv_order_time, conv_order_date);
         if (platform_type == "google") {
           console.log("success google");
           const conv = agent.conv();
@@ -406,42 +392,40 @@ router.post("/api/webhook", express.json(), (req, res) => {
     return facebook_payload;
   }
 
-  function saveOrderToDB(type,data,userID){
+  function saveOrderToDB(data,source,time,date){
    
     
-    if (type=="delivery") {
+    // if (type=="delivery") {
       //Prevent the button from being clicked again
 
-      //Save this to a recipe doc in Firebase
       var deliveryData = {
-        customer_id: userID,
-        order_source: data.source,
-        order_price: data.orderPrice,
+        order_source: source,
+        order_price: Number(data.listPrice),
         order_info: {
           type: "Shopping List",
           name: data.listName,
         },
-        items_info: data.items,
-        delivery_time: data.delivery_time,
-        delivery_date: data.delivery_date,
-        items_quantity: data.items_quantity
+        items_info: data.orderElements,
+        delivery_time: time,
+        delivery_date: date,
+        items_quantity: data.listQuantity
       };
 console.log("Delivery Data: "+JSON.stringify(deliveryData))
       try {
         axios
-          .post("http://localhost:3003/api/delivery_updated/"+userID, deliveryData)
-          .then((resp) => {
+          .post("http://localhost:3003/api/delivery/save/"+data.user_id, deliveryData)
+          .then(() => {
 
-            console.log("RESP "+JSON.stringify(resp));
+            console.log("RESP success when saving to DB");
 
           });
       } catch (err) {
         console.log(err);
       }
       //Send the id and send to the API(setting paid and status of deliver)
-    } else if (type=="collection") {
+    // } else if (type=="collection") {
 
-    }
+    // }
   }
 
   //Intent Map

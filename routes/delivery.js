@@ -163,8 +163,8 @@ router.post("/api/delivery/save/:user_id", async (req, res, next) => {
     
     var userID = req.params.user_id;
     await addDeliveryToDB (userID, req.body).then((delivery) => {
-        var paymentAmount = (Number(delivery.delivery_price)) +  (Number(req.body.order_price).toFixed(2)*100)
-        delivery.total_price =paymentAmount;
+       var paymentAmount = (Number(delivery.delivery_price)) +  (Number(req.body.order_price).toFixed(2)*100)
+       delivery.total_price =paymentAmount;
         delivery.payment_status = "Success"
         delivery.save().then(() => {
             res.json({
@@ -526,6 +526,7 @@ async function addDeliveryToDB(userID, data) {
     var response;
     // var order_info_name = data.order_info.name;
     // var order_info_type = data.order_info.type;
+    console.log("DaTA received "+JSON.stringify(data))
     var orderInfo = data.order_info;
     var orderSource = data.order_source;
     var deliveryTime = data.delivery_time;

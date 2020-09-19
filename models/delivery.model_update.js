@@ -8,22 +8,13 @@ const DeliverySchemaUpdate = new mongoose.Schema({
     order_info:Object,
     payment_status:String,
     items_info: Array,
-    delivery_time: {
-        type: String
-    },
-    delivery_date: {
-        type: String
-    },
-    order_price: {
-        type: Number
-    },
-    delivery_price: {
-        type: Number
-    },
+    delivery_time: String,
+    delivery_date:String,
+    order_price: Number,
+    delivery_price: Number,
     total_price:Number,
-    items_quantity: {
-        type: Number
-    }
+    items_quantity:Number
+    
 }, {
     timestamps: true
 });

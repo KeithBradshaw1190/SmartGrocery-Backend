@@ -63,18 +63,19 @@ router.post("/api/webhook", express.json(), (req, res) => {
   async function deliveryOrders(agent) {
     console.log("Parameters" + JSON.stringify(agent.parameters));
     let access_token = conv.request.user.accessToken;
-
+    var data={};
     const [listName, deliveryLocation, conv_order_time, conv_order_date] = [
       agent.parameters["listName"],
       agent.parameters["deliveryLocation"],
       agent.parameters["conv_order_time"],
       agent.parameters["conv_order_date"],
     ];
+
     //find relevant id based on integration type
     var platform_id;
     if (platform_type == "google") {
       platform_id = await userActions.findGoogleUserByToken(access_token);
-      console.log("platid" + platform_id.sub);
+     // console.log("Googleuser:::::" + JSON.stringify(platform_id));
     } else {
       platform_id = {
         sub: "2977902935566962",
@@ -90,6 +91,8 @@ router.post("/api/webhook", express.json(), (req, res) => {
     if (returnedDetails == "Not Available") {
       agent.add("That delivery time is not available");
     } else {
+            console.log("Returned details:::::" + JSON.stringify(returnedDetails));
+
       agent.add(
         "Found your shopping list! Currently working on your order, just one moment please..."
       );
@@ -103,6 +106,20 @@ router.post("/api/webhook", express.json(), (req, res) => {
       );
 
       if (paymentIntent.status == "succeeded") {
+        // var data = {
+        //   customer_id: userID,
+        //   order_source: data.source,
+        //   order_price: data.orderPrice,
+        //   order_info: {
+        //     type: "Shopping List",
+        //     name: data.listName,
+        //   },
+        //   items_info: data.items,
+        //   delivery_time: data.delivery_time,
+        //   delivery_date: data.delivery_date,
+        //   items_quantity: data.items_quantity
+        // };
+       // saveOrderToDB(type,data,userID);
         if (platform_type == "google") {
           console.log("success google");
           const conv = agent.conv();
@@ -387,6 +404,44 @@ router.post("/api/webhook", express.json(), (req, res) => {
       },
     };
     return facebook_payload;
+  }
+
+  function saveOrderToDB(type,data,userID){
+   
+    
+    if (type=="delivery") {
+      //Prevent the button from being clicked again
+
+      //Save this to a recipe doc in Firebase
+      var deliveryData = {
+        customer_id: userID,
+        order_source: data.source,
+        order_price: data.orderPrice,
+        order_info: {
+          type: "Shopping List",
+          name: data.listName,
+        },
+        items_info: data.items,
+        delivery_time: data.delivery_time,
+        delivery_date: data.delivery_date,
+        items_quantity: data.items_quantity
+      };
+console.log("Delivery Data: "+JSON.stringify(deliveryData))
+      try {
+        axios
+          .post("http://localhost:3003/api/delivery_updated/"+userID, deliveryData)
+          .then((resp) => {
+
+            console.log("RESP "+JSON.stringify(resp));
+
+          });
+      } catch (err) {
+        console.log(err);
+      }
+      //Send the id and send to the API(setting paid and status of deliver)
+    } else if (type=="collection") {
+
+    }
   }
 
   //Intent Map

@@ -122,7 +122,7 @@ module.exports = {
         return;
       }
     
-      conv.ask(`Here's an example of a browsing carousel.`);
+      conv.ask(`Here's the recipe's I found!`);
 items=[];
       recipeResults.forEach((recipe) => {
         var item = new BrowseCarouselItem({

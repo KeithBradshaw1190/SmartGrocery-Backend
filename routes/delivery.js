@@ -76,7 +76,7 @@ router.get("/api/delivery-time", (req, res) => {
     });
 });
 //Endpoint to handle delivery payments from UI
-router.post("/api/delivery_updated/:user_id", async (req, res, next) => {
+router.post("/api/delivery/full_process/:user_id", async (req, res, next) => {
     
     var userID = req.params.user_id;
     await addDeliveryToDB (userID, req.body).then((delivery) => {
@@ -154,7 +154,31 @@ router.post("/api/delivery_updated/:user_id", async (req, res, next) => {
             console.log("Err when calling getStripeCustomerID: " + err)
         });
     })
-})
+});
+
+
+
+//Endpoint to handle saving delivery where payment is done already
+router.post("/api/delivery/save/:user_id", async (req, res, next) => {
+    
+    var userID = req.params.user_id;
+    await addDeliveryToDB (userID, req.body).then((delivery) => {
+        var paymentAmount = (Number(delivery.delivery_price)) +  (Number(req.body.order_price).toFixed(2)*100)
+        delivery.total_price =paymentAmount;
+        delivery.payment_status = "Success"
+        delivery.save().then(() => {
+            res.json({
+                message: "Delivery scheduled successfully"
+            }
+            )
+        }).catch((err)=>{
+            res.json({
+                message: "Delivery schedule error: "+err
+            }
+            )
+        });
+    })
+});
 
 //Endpoint to handle delivery payments from Dialog flow
 router.post("/api/delivery/:user_id", async (req, res, next) => {
@@ -502,7 +526,7 @@ async function addDeliveryToDB(userID, data) {
     var response;
     // var order_info_name = data.order_info.name;
     // var order_info_type = data.order_info.type;
-    var orderInfo = data.orderInfo;
+    var orderInfo = data.order_info;
     var orderSource = data.order_source;
     var deliveryTime = data.delivery_time;
     var deliveryDate = data.delivery_date;

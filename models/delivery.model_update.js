@@ -23,8 +23,7 @@ const DeliverySchemaUpdate = new mongoose.Schema({
     total_price:Number,
     items_quantity: {
         type: Number
-    },
-    messengerID: String
+    }
 }, {
     timestamps: true
 });

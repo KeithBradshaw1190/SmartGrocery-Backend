@@ -9,7 +9,7 @@ const DeliverySchemaUpdate = new mongoose.Schema({
     payment_status:String,
     items_info: Array,
     delivery_time: String,
-    delivery_date:String,
+    delivery_date: String,
     order_price: Number,
     delivery_price: Number,
     total_price:Number,

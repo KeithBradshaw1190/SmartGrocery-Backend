@@ -77,10 +77,11 @@ router.get("/api/delivery-time", (req, res) => {
 });
 //Endpoint to handle delivery payments from UI
 router.post("/api/delivery/full_process/:user_id", async (req, res, next) => {
-    
+    console.log("Yo this is the order+price " +req.body.order_price)
     var userID = req.params.user_id;
     await addDeliveryToDB (userID, req.body).then((delivery) => {
         var paymentAmount = (Number(delivery.delivery_price)) +  (Number(req.body.order_price).toFixed(2)*100)
+        delivery.order_price = (Number(req.body.order_price).toFixed(2)*100);
         delivery.total_price =paymentAmount;
         delivery.payment_status = "Not Started"
         console.log("Delivery Obj "+delivery)
@@ -163,7 +164,8 @@ router.post("/api/delivery/save/:user_id", async (req, res, next) => {
     
     var userID = req.params.user_id;
     await addDeliveryToDB (userID, req.body).then((delivery) => {
-       var paymentAmount = (Number(delivery.delivery_price)) +  (Number(req.body.order_price).toFixed(2)*100)
+       var paymentAmount = (Number(delivery.delivery_price)) +  (Number(req.body.order_price).toFixed(2)*100);
+       delivery.order_price = (Number(req.body.order_price).toFixed(2)*100);
        delivery.total_price =paymentAmount;
         delivery.payment_status = "Success"
         delivery.save().then(() => {

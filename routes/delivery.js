@@ -75,6 +75,7 @@ router.get("/api/delivery-time", (req, res) => {
         deliveryClosed: delivery_closed
     });
 });
+
 //Endpoint to handle delivery payments from UI
 router.post("/api/delivery/full_process/:user_id", async (req, res, next) => {
     console.log("Yo this is the order+price " +req.body.order_price)

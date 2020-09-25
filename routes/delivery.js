@@ -5,7 +5,6 @@ const express = require("express");
 const mongoose = require("mongoose");
 const router = express.Router();
 const fb = require("../firebase/firebaseInit");
-const e = require("express");
 // Import Stripe
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 //24 Hour Clock(7am to 9pm)

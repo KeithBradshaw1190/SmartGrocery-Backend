@@ -10,9 +10,11 @@ const PickupSchemaUpdate = new mongoose.Schema({
     items_info: Array,
     pickup_time: String,
     pickup_date: String,
+    pickup_location:String,
     order_price: Number,
     total_price:Number,
     items_quantity:Number
+
     
 }, {
     timestamps: true

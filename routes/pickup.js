@@ -5,6 +5,8 @@ const express = require("express");
 const mongoose = require("mongoose");
 const router = express.Router();
 const fb = require("../firebase/firebaseInit");
+// Import Stripe
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 //24 Hour Clock(7am to 9pm)
 var hour = new Date().getHours();
 var pickup_open = "07:00:00";
@@ -114,9 +116,9 @@ router.post("/api/pickup/:user_id", async (req, res, next) => {
                         console.log('in function Stripe customer_id: ' + stripe_customer_id);
                         //Set Payment amounts(paymentAmount-the total to charge to a customer)
                         var paymentAmount = Number(listObject.list_price)
-            
+
                         console.log("Payment before" + paymentAmount)
-                        var transferAmount = paymentAmount 
+                        var transferAmount = paymentAmount
                         //add smartgrocery charge (1.5%) and flat rate of €1 if over €100 
                         if (paymentAmount > 100) {
                             sgCharge = ((paymentAmount / 100) * 1.5) + 1
@@ -126,7 +128,7 @@ router.post("/api/pickup/:user_id", async (req, res, next) => {
                         paymentAmount = sgCharge + paymentAmount
                         paymentAmount = Number(paymentAmount.toFixed(2)) * 100
                         console.log("Payment Total: " + paymentAmount +
-                            " SmartGrocery Charge: " + sgCharge )
+                            " SmartGrocery Charge: " + sgCharge)
                         //End of set payment amounts
                         var paymentMethodId;
                         getPaymentId(stripe_customer_id).then((response) => {
@@ -187,21 +189,21 @@ router.post("/api/pickup/:user_id", async (req, res, next) => {
 
 //Endpoint to handle saving pickup where payment is done already
 router.post("/api/pickup/save/:user_id", async (req, res, next) => {
-    
+
     var userID = req.params.user_id;
-    await addPickupToDB (userID, req.body).then((pickup) => {
-       var paymentAmount = (Number(pickup.pickup_price)) +  (Number(req.body.order_price).toFixed(2)*100);
-       pickup.order_price = (Number(req.body.order_price).toFixed(2)*100);
-       pickup.total_price =paymentAmount;
+    await addPickupToDB(userID, req.body).then((pickup) => {
+        var paymentAmount = (Number(pickup.pickup_price)) + (Number(req.body.order_price).toFixed(2) * 100);
+        pickup.order_price = (Number(req.body.order_price).toFixed(2) * 100);
+        pickup.total_price = paymentAmount;
         pickup.payment_status = "Success"
         pickup.save().then(() => {
             res.json({
                 message: "pickup scheduled successfully"
             }
             )
-        }).catch((err)=>{
+        }).catch((err) => {
             res.json({
-                message: "pickup schedule error: "+err
+                message: "pickup schedule error: " + err
             }
             )
         });
@@ -210,17 +212,17 @@ router.post("/api/pickup/save/:user_id", async (req, res, next) => {
 
 //Endpoint to handle pickup payments from UI
 router.post("/api/pickup/full_process/:user_id", async (req, res, next) => {
-    console.log("Yo this is the order+price " +req.body.order_price)
+    console.log("Yo this is the order+price " + req.body.order_price);
     var userID = req.params.user_id;
-    await addpickupToDB (userID, req.body).then((pickup) => {
-        var paymentAmount = 100+ (Number(req.body.order_price).toFixed(2)*100)
-        pickup.order_price = (Number(req.body.order_price).toFixed(2)*100);
-        pickup.total_price =paymentAmount;
+    await addPickupToDB(userID, req.body).then((pickup) => {
+        var paymentAmount = 100 + (Number(req.body.order_price).toFixed(2) * 100)
+        pickup.order_price = (Number(req.body.order_price).toFixed(2) * 100);
+        pickup.total_price = paymentAmount;
         pickup.payment_status = "Not Started"
-        console.log("pickup Obj "+pickup)
-        console.log("pickup paymentAmount  "+paymentAmount)
+        console.log("pickup Obj " + pickup)
+        console.log("pickup paymentAmount  " + paymentAmount)
 
-       // var paymentAmount = Number(12.00) * 100
+        // var paymentAmount = Number(12.00) * 100
 
         return getStripeCustomerID(userID).then(stripeCustomerID => {
             pickup.payment_status = "Pending"
@@ -256,13 +258,13 @@ router.post("/api/pickup/full_process/:user_id", async (req, res, next) => {
                         if (pickup.payment_status == "Failed") {
                             res.json({
                                 message: "Payment Error",
-                                information:paymentIntent
+                                information: paymentIntent
                             }
                             )
                         } else if (pickup.payment_status == "Success") {
                             res.json({
                                 message: "Payment Success",
-                                receipt:paymentIntent.charges.data[0].receipt_url
+                                receipt: paymentIntent.charges.data[0].receipt_url
 
                             }
                             )
@@ -300,56 +302,56 @@ router.post("/api/pickup/full_process/:user_id", async (req, res, next) => {
 //         pickup_time: req.body.pickup_time,
 //         pickup_date: req.body.pickup_date,
 //         messengerID: req.body.messengerID
-  //  });
-    // Parse and format date/time for pickup
-    //time.split(t)
-    //make a get request to firbase for the shopping list
-    //We need to access thefirebase db
-    // var firebaseUID = pickup.firebaseUID;
-    // var listName = pickup.list_name
-    // var list_items = [];
-    //console.log(pickup);
-    // let listRef = fb.db.collection("shopping_lists");
+//  });
+// Parse and format date/time for pickup
+//time.split(t)
+//make a get request to firbase for the shopping list
+//We need to access thefirebase db
+// var firebaseUID = pickup.firebaseUID;
+// var listName = pickup.list_name
+// var list_items = [];
+//console.log(pickup);
+// let listRef = fb.db.collection("shopping_lists");
 
-    // grabUserData = async () => {
-    //     console.log("grabbing user data");
-    //     console.log(pickup)
-    //     var messengerID = pickup.messengerID;
-    //     var listName = pickup.list_name
-    //     // var list_items = [];
-    //     let listRef = fb.db.collection("shopping_lists");
-    //     try {
-    //         listRef.where("messengerID", "==", messengerID).where("listName", "==", listName).get()
-    //             .then(snapshot => {
-    //                 if (snapshot.empty) {
-    //                     res.sendStatus(404);
-    //                     console.log("No matching documents.");
-    //                     return;
-    //                 } else {
-    //                     snapshot.forEach(d => {
-    //                         console.log(d.data())
-    //                         pickup.items_in_list = d.data().items;
-    //                         pickup.order_price = d.data().list_price;
-    //                         pickup.list_quantity = d.data().list_quantity
-    //                         pickup.save().then(item => res.sendStatus(201));
+// grabUserData = async () => {
+//     console.log("grabbing user data");
+//     console.log(pickup)
+//     var messengerID = pickup.messengerID;
+//     var listName = pickup.list_name
+//     // var list_items = [];
+//     let listRef = fb.db.collection("shopping_lists");
+//     try {
+//         listRef.where("messengerID", "==", messengerID).where("listName", "==", listName).get()
+//             .then(snapshot => {
+//                 if (snapshot.empty) {
+//                     res.sendStatus(404);
+//                     console.log("No matching documents.");
+//                     return;
+//                 } else {
+//                     snapshot.forEach(d => {
+//                         console.log(d.data())
+//                         pickup.items_in_list = d.data().items;
+//                         pickup.order_price = d.data().list_price;
+//                         pickup.list_quantity = d.data().list_quantity
+//                         pickup.save().then(item => res.sendStatus(201));
 
-    //                     })
-    //                 }
-    //             });
-    //     } catch (error) {
-    //         console.log("Error getting document:", error);
-    //     };
-    // }
-    // grabUserData();
-    // console.log(pickup)
+//                     })
+//                 }
+//             });
+//     } catch (error) {
+//         console.log("Error getting document:", error);
+//     };
+// }
+// grabUserData();
+// console.log(pickup)
 
 //});
 
 // Delete an entry
 router.delete("/api/pickup/:id", (req, res) => {
     PickupModelUpdate.findOneAndDelete({
-            _id: req.params.id
-        })
+        _id: req.params.id
+    })
         .then(() =>
             res.json({
                 success: true
@@ -365,10 +367,10 @@ router.delete("/api/pickup/:id", (req, res) => {
 // Update an entry
 router.put("/api/pickup/:id", (req, res) => {
     PickupModelUpdate.findOneAndUpdate({
-                _id: req.params.id
-            },
-            req.body
-        )
+        _id: req.params.id
+    },
+        req.body
+    )
         .then(() =>
             res.json({
                 success: true
@@ -402,25 +404,35 @@ function getStripeCustomerID(userID) {
                 messenge: "Error getting Stripe Customer ID " + err
             })
         })
-
 }
+function getPaymentId(stripe_customer_id) {
+    const paymentMethods = stripe.paymentMethods.list({
+        customer: stripe_customer_id,
+        type: 'card'
+    });
+    return paymentMethods
+};
+
 async function addPickupToDB(userID, data) {
     var response;
     // var order_info_name = data.order_info.name;
     // var order_info_type = data.order_info.type;
-    console.log("DaTA received "+JSON.stringify(data))
+    console.log("DaTA received " + JSON.stringify(data))
     var orderInfo = data.order_info;
     var orderSource = data.order_source;
     var pickupTime = data.pickup_time;
     var pickupDate = data.pickup_date;
+    var pickupLocation = data.pickup_location;
+
+
     var itemQuantity = data.items_quantity;
     var messengerID = data.messengerID;
-var orderPrice= data.order_price
+    var orderPrice = data.order_price
     var recipeProductsObj = data.items_info
-    var pickupPrice = Number(1.50)*100;
+    var pickupPrice = Number(1.50) * 100;
 
 
-    var pickup = new pickupModelUpdate({
+    var pickup = new PickupModelUpdate({
         customer_id: userID,
         order_source: orderSource,
         order_info: orderInfo,
@@ -428,8 +440,9 @@ var orderPrice= data.order_price
         pickup_time: pickupTime,
         pickup_date: pickupDate,
         items_quantity: itemQuantity,
-        order_price:orderPrice,
-       
+        order_price: orderPrice,
+        pickup_location: pickupLocation
+
     });
 
     return pickup;

@@ -59,7 +59,7 @@ module.exports = {
     //These are returned to then find a recipe
     const list_name = parameters["listname"];
     var potentialIngredients;
-   // const messengerID = "2977902935566962";
+   // const messengerID = "3178982578828059";
     console.log("List NME" + list_name);
     var departmentArray = ["Fresh Food", "Food Cupboard"];
     var listItems;

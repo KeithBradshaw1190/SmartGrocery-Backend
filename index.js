@@ -1,3 +1,5 @@
+const tracer = require('dd-trace').init()
+
 if (process.env.NODE_ENV !== 'production') {
   require('dotenv').config();
 }

@@ -62,7 +62,6 @@ router.post("/api/webhook", express.json(), (req, res) => {
 
   async function deliveryOrders(agent) {
     console.log("Parameters" + JSON.stringify(agent.parameters));
-    let access_token = conv.request.user.accessToken;
     const [listName, deliveryLocation, conv_order_time, conv_order_date] = [
       agent.parameters["listName"],
       agent.parameters["deliveryLocation"],
@@ -73,6 +72,7 @@ router.post("/api/webhook", express.json(), (req, res) => {
     //find relevant id based on integration type
     var platform_id;
     if (platform_type == "google") {
+      let access_token = conv.request.user.accessToken;
       platform_id = await userActions.findGoogleUserByToken(access_token);
      // console.log("Googleuser:::::" + JSON.stringify(platform_id));
     } else {
@@ -236,7 +236,7 @@ router.post("/api/webhook", express.json(), (req, res) => {
       var gUser = await userActions.findGoogleUserByToken(access_token);
       user = await userActions.findFirebaseUser(gUser.sub, platform_type);
     } else if (platform_type == "facebook") {
-      const messengerID = "2977902935566962";
+      const messengerID = "3178982578828059";
 
       user = await userActions.findFirebaseUser(messengerID, platform_type);
     }

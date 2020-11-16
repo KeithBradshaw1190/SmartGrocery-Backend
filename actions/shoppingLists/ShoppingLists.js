@@ -4,7 +4,7 @@ module.exports = {
   async findShoppingListItemsByName(parameters) {
     const list_name = parameters["listname"];
 
-    const messengerID = "2977902935566962";
+    const messengerID = "3178982578828059";
     console.log("List NaME" + list_name);
     var listData;
     const listDoc = firebase.db.collection("shopping_lists");
@@ -32,7 +32,7 @@ module.exports = {
     async findShoppingListByFreq(parameters) {
     const purchase_frequency = parameters["purchase_frequency"];
 
-    const messengerID = "2977902935566962";
+    const messengerID = "3178982578828059";
     console.log("purchase_frequency" + purchase_frequency);
     var listName,items_arr;
     var string=""

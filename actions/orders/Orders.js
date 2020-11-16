@@ -13,7 +13,7 @@ module.exports = {
       .split("+")[0];
     var list_name = parameters.listName;
 
-    //var messengerID = "2977902935566962";
+    var messengerID = "3178982578828059";
     var orderAvailiable = this.timeAvailability(order_type, scheduled_time);
 
     if (platform_type == "google") {
@@ -59,9 +59,11 @@ module.exports = {
         //Return User details
         const userDetails = await this.getUser(messengerID);
         //Return shopping list details
+        var uid = userDetails.uid;
+
         const shopppinglistDetails = await this.getShoppinglist(
           list_name,
-          messengerID
+          uid
         );
         var returnedDetails;
 
@@ -132,24 +134,24 @@ module.exports = {
     }
   },
 
-  // getUser: async function (messengerID) {
-  //   let userRef = firebase.db.collection("users");
-  //   console.log("Getting user" + messengerID);
+  getUser: async function (messengerID) {
+    let userRef = firebase.db.collection("users");
+    console.log("Getting user" + messengerID);
 
-  //   try {
-  //     const snapshot = await userRef
-  //       .where("messengerID", "==", messengerID)
-  //       .get();
-  //     var user;
-  //     snapshot.forEach((doc) => {
-  //       user = doc.data();
-  //     });
-  //     return user;
-  //   } catch (err) {
-  //     console.log("User error" + err);
-  //     return Promise.reject("No such document");
-  //   }
-  // },
+    try {
+      const snapshot = await userRef
+        .where("messengerID", "==", messengerID)
+        .get();
+      var user;
+      snapshot.forEach((doc) => {
+        user = doc.data();
+      });
+      return user;
+    } catch (err) {
+      console.log("User error" + err);
+      return Promise.reject("No such document");
+    }
+  },
 
   chargeCard: async function (baseListPrice, stripe_customer_id) {
     //Set Payment amounts(paymentAmount-the total to charge to a customer)
@@ -256,6 +258,8 @@ var card=new BasicCard({
     parameters,platform_type
   ) {
     console.log("format order mainresp: " + JSON.stringify(userDetails));
+    console.log("shoppingListDetails: " + JSON.stringify(shoppingListDetails));
+
     var list_name = parameters.listName;
     var delivery_location = parameters.deliveryLocation;
 

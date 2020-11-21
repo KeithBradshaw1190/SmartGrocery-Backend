@@ -22,6 +22,8 @@ const customer = require("./routes/customer");
 const delivery = require("./routes/delivery");
 const pickup = require("./routes/pickup");
 const receipt = require("./routes/receipt");
+const inventory = require("./routes/inventory");
+
 
 
 // CORs
@@ -69,6 +71,9 @@ app.use(customer);
 app.use(delivery);
 app.use(pickup);
 app.use(receipt);
+app.use(inventory);
+
+
 
 app.use(verifyWebhook);
 

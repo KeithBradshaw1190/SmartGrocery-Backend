@@ -226,13 +226,14 @@ router.post("/api/webhook", express.json(), (req, res) => {
   }
   async function recipeFromShoppingList(agent) {
     let conv = agent.conv();
-    let access_token = conv.request.user.accessToken;
 
     // Agent Parameters will have list name AND OPTIONALLY a type of recipe
 
     //First find user UID
     var user;
     if (platform_type == "google") {
+      let access_token = conv.request.user.accessToken;
+
       var gUser = await userActions.findGoogleUserByToken(access_token);
       user = await userActions.findFirebaseUser(gUser.sub, platform_type);
     } else if (platform_type == "facebook") {
@@ -240,6 +241,7 @@ router.post("/api/webhook", express.json(), (req, res) => {
 
       user = await userActions.findFirebaseUser(messengerID, platform_type);
     }
+    console.log(user)
     var ingredientsFromList = await recipeActions.findIngredientsFromShoppingList(
       agent.parameters,
       user.uid

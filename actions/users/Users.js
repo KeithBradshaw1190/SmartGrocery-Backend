@@ -56,18 +56,24 @@ module.exports = {
   findFirebaseUser: async function (id, platform) {
     const userDoc = firebase.db.collection("users");
     if (platform == "facebook" && id) {
-      //Return User By messengerID
+console.log("findFirebaseUser"+platform)
       try {
-        const snapshot = await userDoc.where("google_sub", "==", id).get();
+        const snapshot = await userDoc.where("messengerID", "==", id).get();
         var firebaseUser;
         snapshot.forEach((doc) => {
-          firebaseUser = doc.data();
+          console.log(doc.data())
+           firebaseUser = doc.data();
+    
         });
+        console.log("findFirebaseUser"+firebaseUser)
+
         return firebaseUser;
       } catch (err) {
         console.log("User error" + err);
         return Promise.reject("No such document");
       }
+
+
     } else if (platform == "google" && id) {
       try {
         const snapshot = await userDoc.where("google_sub", "==", id).get();

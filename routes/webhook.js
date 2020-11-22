@@ -5,6 +5,8 @@ const ordersActions = require("../actions/orders/Orders");
 const recipeActions = require("../actions/recipes/Recipes");
 const listActions = require("../actions/shoppingLists/ShoppingLists");
 const userActions = require("../actions/users/Users");
+const inventoryActions = require("../controllers/inventoryController");
+
 
 const axios = require("axios");
 const { WebhookClient } = require("dialogflow-fulfillment");
@@ -417,9 +419,20 @@ console.log("Delivery Data: "+JSON.stringify(deliveryData))
         axios
           .post("http://localhost:3003/api/delivery/save/"+data.user_id, deliveryData)
           .then(() => {
-
-            console.log("RESP success when saving to DB");
-
+            // Update inventory
+            var newInventory = {
+              uid: data.user_id,
+              order_source: deliveryData.order_source,
+              current_inventory: deliveryData.items_info,
+              order_submitted_on: "today",
+              order_received_on: deliveryData.delivery_date,
+          };
+          return inventoryActions.createInventory(data.user_id, newInventory).then((result)=>{
+            agent.add("Added to your inventory!");
+      
+          }).catch((err)=>{
+            agent.add("An error occurred updating your inventory");
+          })
           });
       } catch (err) {
         console.log(err);
@@ -428,6 +441,36 @@ console.log("Delivery Data: "+JSON.stringify(deliveryData))
     // } else if (type=="collection") {
 
     // }
+  }
+
+  async function updateInventory(agent){
+    console.log("PARAMS YO"+JSON.stringify(agent.parameters))
+    let conv = agent.conv();
+
+    // Agent Parameters will have list name AND OPTIONALLY a type of recipe
+
+    //First find user UID
+    var user;
+    if (platform_type == "google") {
+      let access_token = conv.request.user.accessToken;
+
+      var gUser = await userActions.findGoogleUserByToken(access_token);
+      user = await userActions.findFirebaseUser(gUser.sub, platform_type);
+    } 
+    var changes = {
+      product_name: agent.parameters.foodingredients,
+      change_amount: Number(agent.parameters.number),
+    };
+    console.log("NAME: "+changes.product_name)
+    console.log("Number: "+changes.change_amount)
+
+    return inventoryActions.updateInventory(user.uid, changes).then((result)=>{
+      agent.add("Updated your inventory!");
+
+    }).catch((err)=>{
+      agent.add("An error occurred updating your inventory " +err);
+    })
+
   }
 
   //Intent Map
@@ -445,6 +488,8 @@ console.log("Delivery Data: "+JSON.stringify(deliveryData))
     "Show Items in Shopping List-by purch freq",
     shoppingListByPurchFreq
   );
+  intentMap.set("Update Inventory", updateInventory);
+
 
   agent.handleRequest(intentMap);
 });

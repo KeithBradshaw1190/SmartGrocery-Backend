@@ -69,31 +69,7 @@ module.exports = {
 
         //list ref to this specific users inventory document
         let listRef = userInventoryDoc.doc(userID);
-        // const decrement = firebase.firestore.FieldValue.increment(-1);
-        // const increment = firebase.firestore.FieldValue.increment(1);
 
-
-
-        // db.runTransaction(function(transaction) {
-        //     return transaction.get(listRef).then(function(doc) {
-        //         if (!doc.exists) {
-        //             throw "Document does not exist!";
-        //         }
-
-        //         var newPopulation = doc.data().population + 1;
-        //         if (newPopulation <= 1000000) {
-        //             transaction.update(listRef, { population: newPopulation });
-        //             return newPopulation;
-        //         } else {
-        //             return Promise.reject("Sorry! Population is too big.");
-        //         }
-        //     });
-        // }).then(function(newPopulation) {
-        //     console.log("Population increased to ", newPopulation);
-        // }).catch(function(err) {
-        //     // This will be an "population is too big" error.
-        //     console.error(err);
-        // });
 
 
         return fb.db
@@ -103,51 +79,65 @@ module.exports = {
                         throw "Document does not exist!";
                     }
                     var inventoryFromDB = doc.data().current_inventory;
-                    console.log("searching for "+(productName+changeAmount)+" in inventory From DB:" + JSON.stringify(inventoryFromDB));
+                    console.log("searching for " + (productName ) + " in inventory From DB:" + JSON.stringify(inventoryFromDB));
 
                     //   Search for the productname
-                    const searcher = new FuzzySearch(inventoryFromDB, ['item.name'], {
+                    const searcher = new FuzzySearch(inventoryFromDB, ['title'], {
                         caseSensitive: false,
-                      });
-                      var productObject = searcher.search(productName);
+                    });
+                    var productObject = searcher.search(productName);
 
-                  console.log("productObject:" + JSON.stringify(productObject));
-                 var index= productObject[0].refIndex;
-                 console.log("ref:" + index);
-                var currentAmnt=(productObject[0].item.quantity)
-                 var updatedInventory=inventoryFromDB;
-                 if((Number(currentAmnt)+changeAmount)<0){
-                    
-                 }else{
-                    productObject[0].item.quantity=(Number(currentAmnt)+changeAmount);
-                    console.log("amnt:" +  (Number(currentAmnt)+changeAmount))
-                    
- 
                     console.log("productObject:" + JSON.stringify(productObject));
- 
-                    updatedInventory[index]=productObject[0];
-                     //  Compare the thresholds to decide if trigger
-                     // for (var i = 1; i < arr.length; i++) {
-                     //     if (arr[i].a !== arr[0].a || arr[i].b !== arr[0].b) {
-                     //         return false;
-                     //     }
-                     // }
-                     // return true;
-                     // End of compaaring thresholds
-                     
-                     console.log("Updated Inventory From DB:" + JSON.stringify(updatedInventory));
- 
-                     transaction.update(listRef, {
-                         current_inventory: updatedInventory
-                     });
-                     //Will need to check if it meets the threshold if so trigger a follow up asking if they want to order
-                     return updatedInventory
-                 }
-                  
+                    var index = productObject[0].refIndex;
+                    console.log("ref:" + index);
+                    var currentAmnt = (productObject[0].quantity)
+                    var updatedInventory = inventoryFromDB;
+                    if ((Number(currentAmnt) + changeAmount) < 0) {
+                        //If the quantity is less than 0 reset it to 0
+                        productObject[0].item.quantity = 0;
+                        console.log("Setting Item quantity to zero as it went negative:");
+
+                        updatedInventory[index] = productObject[0];
+                    } else {
+                        //Update the quantity with specified amount
+                        productObject[0].quantity = (Number(currentAmnt) + changeAmount);
+                        updatedInventory[index] = productObject[0];
+                        console.log("Setting Item quantity to specified amount");
+
+                    }
+
+                        //  Compare the thresholds to decide if trigger goes off for order prompt
+                        // Thresholds of -1 means not set by user
+                        var itemsMeetingThreshold=[]
+                        var counter=0
+                        for (var i = 0; i < updatedInventory.length; i++) {
+                            console.log("In for loop");
+
+                            if ((updatedInventory[i].quantity == updatedInventory[i].threshold)||(updatedInventory[i].quantity < updatedInventory[i].threshold)) {
+                                itemsMeetingThreshold.push(updatedInventory[i])
+                                console.log(`Pushing ${updatedInventory[i].title}: threshold is met`)
+                                counter++
+                            }else{
+                                console.log(`Skipping ${updatedInventory[i].title}: threshold not met`)
+                            }
+                        }
+                        console.log("Counter "+counter)
+                        // End of comparing thresholds
+
+                        console.log("Updated Inventory From DB:" + JSON.stringify(updatedInventory));
+
+                        transaction.update(listRef, {
+                            current_inventory: updatedInventory
+                        });
+                        //Will need to check if it meets the threshold if so trigger a follow up asking if they want to order
+                        return updatedInventory
+                    
+
                 });
             })
             .then((updatedInventory) => {
                 console.log("New Inventory is: " + JSON.stringify(updatedInventory));
+                return updatedInventory
 
             })
 

@@ -112,9 +112,8 @@ module.exports = {
                         console.log("Setting Item quantity to specified amount");
 
                     }
-
                         //  Compare the thresholds to decide if trigger goes off for order prompt
-                        // Thresholds of -1 means not set by user
+                        // Thresholds of -1 means no threshold set by user
                         var itemsMeetingThreshold=[]
                         var counter=0
                         for (var i = 0; i < updatedInventory.length; i++) {
@@ -124,22 +123,25 @@ module.exports = {
                                 itemsMeetingThreshold.push(updatedInventory[i])
                                 console.log(`Pushing ${updatedInventory[i].title}: threshold is met`)
                                 counter++
+
                             }else{
                                 console.log(`Skipping ${updatedInventory[i].title}: threshold not met`)
                             }
                         }
                         console.log("Counter "+counter)
                         // End of comparing thresholds
-
+                        
                         console.log("Updated Inventory From DB:" + JSON.stringify(updatedInventory));
-
                         transaction.update(listRef, {
                             current_inventory: updatedInventory
                         });
                         //Will need to check if it meets the threshold if so trigger a follow up asking if they want to order
-                        return updatedInventory
-                    
-
+                        var inventoryUpdates={
+                            updated_inventory:updatedInventory,
+                            items_meeting_threshold: itemsMeetingThreshold,
+                            quantity_of_item_left:productObject[0].quantity
+                        }
+                        return inventoryUpdates
                 });
             })
             .then((updatedInventory) => {

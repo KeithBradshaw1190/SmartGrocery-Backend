@@ -446,7 +446,7 @@ console.log("Delivery Data: "+JSON.stringify(deliveryData))
   async function updateInventory(agent){
     console.log("PARAMS YO"+JSON.stringify(agent.parameters))
     let conv = agent.conv();
-
+    var product_name=agent.parameters.foodingredients;
     // Agent Parameters will have list name AND OPTIONALLY a type of recipe
 
     //First find user UID
@@ -465,7 +465,10 @@ console.log("Delivery Data: "+JSON.stringify(deliveryData))
     console.log("Number: "+changes.change_amount)
 
     return inventoryActions.updateInventory(user.uid, changes).then((result)=>{
-      agent.add("Updated your inventory!");
+      console.log("result")
+
+      console.log(result)
+      agent.add(`Updated your inventory! Your ${product_name} quantity is now ${result.quantity_of_item_left}`);
 
     }).catch((err)=>{
       agent.add("An error occurred updating your inventory " +err);

@@ -4,14 +4,21 @@ let userInventoryDoc = fb.db.collection("user_inventory");
 
 module.exports = {
     createInventory: async function (userID, inventoryData) {
-
+        var invBeforeThresh=inventoryData.current_inventory;
+        for (var i = 0; i < invBeforeThresh.length; i++) {
+           if (invBeforeThresh[i].threshold){
+               return
+           }else{
+            invBeforeThresh[i].threshold=-1
+           }
+        }
         var inventoryExists = await this.showInventory(userID);
         if (inventoryExists.success == false) {
             console.log("Creating Inventory for user")
             var newInventory = {
                 uid: userID,
                 order_source: inventoryData.order_source,
-                current_inventory: inventoryData.current_inventory,
+                current_inventory: invBeforeThresh,
                 order_submitted_on: inventoryData.order_submitted_on,
                 order_received_on: inventoryData.order_received_on,
             };

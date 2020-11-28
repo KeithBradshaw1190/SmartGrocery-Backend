@@ -93,55 +93,73 @@ module.exports = {
                         caseSensitive: false,
                     });
                     var productObject = searcher.search(productName);
-
                     console.log("productObject:" + JSON.stringify(productObject));
-                    var index = productObject[0].refIndex;
-                    console.log("ref:" + index);
-                    var currentAmnt = (productObject[0].quantity)
-                    var updatedInventory = inventoryFromDB;
-                    if ((Number(currentAmnt) + changeAmount) < 0) {
-                        //If the quantity is less than 0 reset it to 0
-                        productObject[0].item.quantity = 0;
-                        console.log("Setting Item quantity to zero as it went negative:");
 
-                        updatedInventory[index] = productObject[0];
-                    } else {
-                        //Update the quantity with specified amount
-                        productObject[0].quantity = (Number(currentAmnt) + changeAmount);
-                        updatedInventory[index] = productObject[0];
-                        console.log("Setting Item quantity to specified amount");
-
-                    }
-                        //  Compare the thresholds to decide if trigger goes off for order prompt
-                        // Thresholds of -1 means no threshold set by user
-                        var itemsMeetingThreshold=[]
-                        var counter=0
-                        for (var i = 0; i < updatedInventory.length; i++) {
-                            console.log("In for loop");
-
-                            if ((updatedInventory[i].quantity == updatedInventory[i].threshold)||(updatedInventory[i].quantity < updatedInventory[i].threshold)) {
-                                itemsMeetingThreshold.push(updatedInventory[i])
-                                console.log(`Pushing ${updatedInventory[i].title}: threshold is met`)
-                                counter++
-
-                            }else{
-                                console.log(`Skipping ${updatedInventory[i].title}: threshold not met`)
-                            }
-                        }
-                        console.log("Counter "+counter)
-                        // End of comparing thresholds
-                        
-                        console.log("Updated Inventory From DB:" + JSON.stringify(updatedInventory));
-                        transaction.update(listRef, {
-                            current_inventory: updatedInventory
-                        });
-                        //Will need to check if it meets the threshold if so trigger a follow up asking if they want to order
+                    if(productObject === undefined || productObject.length == 0){
                         var inventoryUpdates={
-                            updated_inventory:updatedInventory,
-                            items_meeting_threshold: itemsMeetingThreshold,
-                            quantity_of_item_left:productObject[0].quantity
+                            updated_inventory:"N/a",
+                            items_meeting_threshold: "N/a",
+                            quantity_of_item_left:"N/a"
                         }
                         return inventoryUpdates
+                    }else{
+                        var updatedInventory = inventoryFromDB;
+                        var title=productObject[0].title;
+                        var index = updatedInventory.findIndex(i => i.title == title)
+
+                        console.log("ref:" + index);
+                        var currentAmnt = (productObject[0].quantity)
+                
+                        if ((Number(currentAmnt) + changeAmount) < 0) {
+                            //If the quantity is less than 0 reset it to 0
+                            productObject[0].quantity = 0;
+                            console.log("Setting Item quantity to zero as it went negative:");
+    
+                            updatedInventory[index] = productObject[0];
+                        } else {
+                            //Update the quantity with specified amount
+                            productObject[0].quantity = (Number(currentAmnt) + changeAmount);
+                            updatedInventory[index] = productObject[0];
+                            console.log("Setting Item quantity to specified amount");
+    
+                        }
+                            //  Compare the thresholds to decide if trigger goes off for order prompt
+                            // Thresholds of -1 means no threshold set by user
+                            var itemsMeetingThreshold=[]
+                            var counter=0
+                            for (var i = 0; i < updatedInventory.length; i++) {
+                                console.log("In for loop");
+    
+                                if ((updatedInventory[i].quantity == updatedInventory[i].threshold)||(updatedInventory[i].quantity < updatedInventory[i].threshold)||updatedInventory[i].quantity==0) {
+                                    itemsMeetingThreshold.push(updatedInventory[i])
+                                    console.log(`Pushing ${updatedInventory[i].title}: threshold is met or quantity is zero`)
+                                    counter++
+    
+                                }else{
+                                    console.log(`Skipping ${updatedInventory[i].title}: threshold not met`)
+                                }
+                            }
+                            console.log("Counter "+counter)
+                            console.log("itemsMeetingThreshold "+itemsMeetingThreshold.length)
+
+                            // End of comparing thresholds
+                            
+                            console.log("Updated Inventory From DB:" + JSON.stringify(updatedInventory));
+                            transaction.update(listRef, {
+                                current_inventory: updatedInventory
+                            });
+                            //Will need to check if it meets the threshold if so trigger a follow up asking if they want to order
+                            var inventoryUpdates={
+                                updated_inventory:updatedInventory,
+                                items_meeting_threshold: itemsMeetingThreshold,
+                                quantity_of_item_left:productObject[0].quantity
+                            }
+                            return inventoryUpdates
+
+                    }
+
+
+                 
                 });
             })
             .then((updatedInventory) => {

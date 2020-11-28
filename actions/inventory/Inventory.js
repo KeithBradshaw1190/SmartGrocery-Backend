@@ -4,11 +4,10 @@ const { SignIn, BasicCard,Button, Image, SimpleResponse, } = require("actions-on
 const { json } = require("body-parser");
 
 module.exports = {
-  inventoryMain: async function (parameters, order_type, platform_type,platform_id) {
+  inventoryMain: async function (parameters, platform_type) {
 
 
     var messengerID = "3178982578828059";
-    var orderAvailiable = this.timeAvailability(order_type, scheduled_time);
 
     if (platform_type == "google") {
       console.log("platform type"+ platform_type)

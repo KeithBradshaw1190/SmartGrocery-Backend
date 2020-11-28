@@ -15,8 +15,12 @@ const {
   SignIn,
   BasicCard,
   Button,
+  BrowseCarouselItem,
+  BrowseCarousel,
   Image,
   SimpleResponse,
+  UpdatePermission,
+  Suggestions
 } = require("actions-on-google");
 
 if (process.env.NODE_ENV !== "production") {
@@ -76,7 +80,7 @@ router.post("/api/webhook", express.json(), (req, res) => {
     if (platform_type == "google") {
       let access_token = conv.request.user.accessToken;
       platform_id = await userActions.findGoogleUserByToken(access_token);
-     // console.log("Googleuser:::::" + JSON.stringify(platform_id));
+      // console.log("Googleuser:::::" + JSON.stringify(platform_id));
     } else {
       platform_id = {
         sub: "2977902935566962",
@@ -92,7 +96,7 @@ router.post("/api/webhook", express.json(), (req, res) => {
     if (returnedDetails == "Not Available") {
       agent.add("That delivery time is not available");
     } else {
-            console.log("Returned details:::::" + JSON.stringify(returnedDetails));
+      console.log("Returned details:::::" + JSON.stringify(returnedDetails));
 
       agent.add(
         "Found your shopping list! Currently working on your order, just one moment please..."
@@ -107,7 +111,7 @@ router.post("/api/webhook", express.json(), (req, res) => {
       );
 
       if (paymentIntent.status == "succeeded") {
-        saveOrderToDB(returnedDetails,platform_type, conv_order_time, conv_order_date);
+        saveOrderToDB(returnedDetails, platform_type, conv_order_time, conv_order_date);
         if (platform_type == "google") {
           console.log("success google");
           const conv = agent.conv();
@@ -396,57 +400,96 @@ router.post("/api/webhook", express.json(), (req, res) => {
     return facebook_payload;
   }
 
-  function saveOrderToDB(data,source,time,date){
-   
-    
-    // if (type=="delivery") {
-      //Prevent the button from being clicked again
+  function saveOrderToDB(data, source, time, date) {
 
-      var deliveryData = {
-        order_source: source,
-        order_price: Number(data.listPrice),
-        order_info: {
-          type: "Shopping List",
-          name: data.listName,
-        },
-        items_info: data.orderElements,
-        delivery_time: time,
-        delivery_date: date,
-        items_quantity: data.listQuantity
-      };
-console.log("Delivery Data: "+JSON.stringify(deliveryData))
-      try {
-        axios
-          .post("http://localhost:3003/api/delivery/save/"+data.user_id, deliveryData)
-          .then(() => {
-            // Update inventory
-            var newInventory = {
-              uid: data.user_id,
-              order_source: deliveryData.order_source,
-              current_inventory: deliveryData.items_info,
-              order_submitted_on: "today",
-              order_received_on: deliveryData.delivery_date,
+
+    // if (type=="delivery") {
+    //Prevent the button from being clicked again
+
+    var deliveryData = {
+      order_source: source,
+      order_price: Number(data.listPrice),
+      order_info: {
+        type: "Shopping List",
+        name: data.listName,
+      },
+      items_info: data.orderElements,
+      delivery_time: time,
+      delivery_date: date,
+      items_quantity: data.listQuantity
+    };
+    console.log("Delivery Data: " + JSON.stringify(deliveryData))
+    try {
+      axios
+        .post("http://localhost:3003/api/delivery/save/" + data.user_id, deliveryData)
+        .then(() => {
+          // Update inventory
+          var newInventory = {
+            uid: data.user_id,
+            order_source: deliveryData.order_source,
+            current_inventory: deliveryData.items_info,
+            order_submitted_on: "today",
+            order_received_on: deliveryData.delivery_date,
           };
-          return inventoryActions.createInventory(data.user_id, newInventory).then((result)=>{
+          return inventoryActions.createInventory(data.user_id, newInventory).then((result) => {
             agent.add("Added to your inventory!");
-      
-          }).catch((err)=>{
+
+          }).catch((err) => {
             agent.add("An error occurred updating your inventory");
           })
-          });
-      } catch (err) {
-        console.log(err);
-      }
-      //Send the id and send to the API(setting paid and status of deliver)
+        });
+    } catch (err) {
+      console.log(err);
+    }
+    //Send the id and send to the API(setting paid and status of deliver)
     // } else if (type=="collection") {
 
     // }
   }
-
-  async function updateInventory(agent){
-    console.log("PARAMS YO"+JSON.stringify(agent.parameters))
+  async function showInventory(agent) {
     let conv = agent.conv();
-    var product_name=agent.parameters.foodingredients;
+
+    //First find user UID
+    var user;
+    if (platform_type == "google") {
+      let access_token = conv.request.user.accessToken;
+
+      var gUser = await userActions.findGoogleUserByToken(access_token);
+      user = await userActions.findFirebaseUser(gUser.sub, platform_type);
+    }
+    return inventoryActions.showInventory(user.uid).then((result) => {
+      if (result.success == false) {
+        agent.add(`No inventory set up yet.`);
+
+      } else {
+        var inventoryItems=result.inventory_data.current_inventory;
+        conv.ask(`Here's your inventory!`);
+        items=[];
+        inventoryItems.forEach((inv) => {
+        var item = new BrowseCarouselItem({
+          title:inv.title,
+          url: inv.image_url,
+          description:`Amount at home ${inv.quantity}`,
+          image: new Image({
+            url: inv.image_url,
+            alt: 'inventoryItems Image',
+          })
+        })
+        items.push(item);
+      });
+      conv.add(new BrowseCarousel({
+        items: items,
+      }));
+
+      agent.add(conv)
+      }
+    })
+
+  }
+  async function updateInventory(agent) {
+    console.log("PARAMS YO" + JSON.stringify(agent.parameters))
+    let conv = agent.conv();
+    var product_name = agent.parameters.foodingredients;
     // Agent Parameters will have list name AND OPTIONALLY a type of recipe
 
     //First find user UID
@@ -456,26 +499,74 @@ console.log("Delivery Data: "+JSON.stringify(deliveryData))
 
       var gUser = await userActions.findGoogleUserByToken(access_token);
       user = await userActions.findFirebaseUser(gUser.sub, platform_type);
-    } 
+    }
     var changes = {
       product_name: agent.parameters.foodingredients,
       change_amount: Number(agent.parameters.number),
     };
-    console.log("NAME: "+changes.product_name)
-    console.log("Number: "+changes.change_amount)
+    console.log("NAME: " + changes.product_name)
+    console.log("Number: " + changes.change_amount)
 
-    return inventoryActions.updateInventory(user.uid, changes).then((result)=>{
-      console.log("result")
+    return inventoryActions.updateInventory(user.uid, changes).then((result) => {
+      if (result.updated_inventory == "N/a") {
+        agent.add(`Couldn't find any ${product_name} in your inventory.`);
 
-      console.log(result)
-      agent.add(`Updated your inventory! Your ${product_name} quantity is now ${result.quantity_of_item_left}`);
+      } else {
+        if (((result.items_meeting_threshold).length > 1)&&result.quantity_of_item_left == 0) {
+          agent.add(`You're all out of ${product_name}, and running low on other items. I can schedule an order or remind you later if you would like? `)
 
-    }).catch((err)=>{
-      agent.add("An error occurred updating your inventory " +err);
+        }
+        else if (result.quantity_of_item_left == 0) {
+          agent.add(`You're all out of ${product_name}`)
+
+        } else {
+          agent.add(`Updated your inventory! Your ${product_name} quantity is now ${result.quantity_of_item_left}`);
+          // Trigger a follow up to see if they want to re order
+        }
+     
+      }
+
+    }).catch((err) => {
+      agent.add("An error occurred updating your inventory " + err);
     })
 
   }
+  async function updateInventory_ReorderTrigger(agent) {
+    // Decide order type based on response
+    var orderType = agent.parameters.order_type;
+    if (orderType == "Delivery") {
+      agent.setFollowupEvent("DELIVERY_ORDER");
 
+    } else if (orderType == "Pick-up") {
+      agent.add(`Trigger Pick-up`);
+
+    }
+
+  }
+  
+  async function updateInventory_ReorderLater(agent) {
+  
+    console.log("Update Inventory - reorderLater")
+    // Trigger notification to remind them later
+    conv.ask(' I can send you push notifications. Would you like that?');
+
+    agent.add(conv.ask(new UpdatePermission({
+      intent: 'Notification',
+    })));
+
+    // agent.add(conv.ask(new Suggestions('Send notifications')));
+
+
+  }
+
+
+  async function test(agent){
+    conv.ask(' I can send you push notifications. Would you like that?');
+
+    agent.add(conv.ask(new UpdatePermission({
+      intent: 'Notification',
+    })));
+  }
   //Intent Map
   let intentMap = new Map();
   intentMap.set("Default Welcome Intent", welcome);
@@ -492,6 +583,12 @@ console.log("Delivery Data: "+JSON.stringify(deliveryData))
     shoppingListByPurchFreq
   );
   intentMap.set("Update Inventory", updateInventory);
+
+  intentMap.set("Update Inventory (reorder triggered)- yes", updateInventory_ReorderTrigger);
+  intentMap.set("Update Inventory - reorderLater", updateInventory_ReorderLater);
+  intentMap.set("notification test", test);
+  intentMap.set("Show Inventory", showInventory);
+
 
 
   agent.handleRequest(intentMap);

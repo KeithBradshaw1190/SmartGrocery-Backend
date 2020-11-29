@@ -551,7 +551,7 @@ router.post("/api/webhook", express.json(), (req, res) => {
     conv.ask(' I can send you push notifications. Would you like that?');
 
     agent.add(conv.ask(new UpdatePermission({
-      intent: 'Notification',
+      intent: 'Update Inventory (reorder triggered)- yes',
     })));
 
     // agent.add(conv.ask(new Suggestions('Send notifications')));
@@ -561,11 +561,31 @@ router.post("/api/webhook", express.json(), (req, res) => {
 
 
   async function test(agent){
-    conv.ask(' I can send you push notifications. Would you like that?');
+    conv.ask(`When should I send a reminder?`);
 
-    agent.add(conv.ask(new UpdatePermission({
-      intent: 'Notification',
-    })));
+    const Suggestion = {
+      THIS_EVEN: 'This Evening',
+      TOMORROW_M: 'Tomorrow Morning',
+      TOMORROW_E: 'Tomorrow Evening',
+      COUPLE_D: 'In a couple of days',
+    };
+    if (conv.screen) {
+      conv.ask(new Suggestions([Suggestion.THIS_EVEN, Suggestion.COUPLE_D]));
+    };
+    agent.add(conv)
+    if (conv.arguments.get('PERMISSION')) {
+      console.log("PERMISION!")
+      let userId = conv.arguments.get('UPDATES_USER_ID');
+      if (!userId) {
+        userId = conv.request.conversation.conversationId;
+        console.log("userId!"+userId)
+
+      }
+    }else{
+      console.log("no PERMISION!")
+      userId = conv.request.conversation.conversationId;
+      console.log("userId!"+userId)
+    }
   }
   //Intent Map
   let intentMap = new Map();

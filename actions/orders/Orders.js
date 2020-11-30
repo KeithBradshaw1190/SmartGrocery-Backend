@@ -237,11 +237,54 @@ var card=new BasicCard({
       subtitle: 'Total Price (incl delivery): €'+totalAmount,
       title: 'Delivery Scheduled: '+formattedListName,
       buttons:[ new Button({
-        title: 'Delivery Info',
-        url: 'https://assistant.google.com/',
-      }),new Button({
         title: 'Receipt',
         url: receiptUrl,
+      }),new Button({
+        title: 'Delivery Info',
+        url: 'https://assistant.google.com/',
+      })],
+      image: new Image({
+        url: 'https://www.netclipart.com/pp/m/308-3089576_gropronto-grocery-delivery.png',
+        alt: 'Success',
+      }),
+      display: 'CROPPED',
+    });
+    return card
+
+  },
+  createGoogleCollectionResponse:function(paymentIntent, returnedDetails){
+    var baseListPrice = returnedDetails.listPrice;
+    var userName = returnedDetails.userName;
+    var listQuantity = returnedDetails.listQuantity;
+    var listName = returnedDetails.listName;
+    var formattedListName= listName.charAt(0).toUpperCase() + listName.slice(1);
+    var orderElements = returnedDetails.orderElements;
+    var collectionAddress = returnedDetails.collectionAddress;
+    var totalAmount = paymentIntent.amount / 100;
+    var receiptUrl = paymentIntent.charges.data[0].receipt_url;
+    var timestamp = paymentIntent.created;
+    var payment_method_details =
+      paymentIntent.charges.data[0].payment_method_details;
+    var payment_method =
+      payment_method_details.card.brand +
+      " " +
+      payment_method_details.card.last4;
+
+console.log(JSON.stringify(collectionAddress))
+var card=new BasicCard({
+      text: `__Order Summary__  \n
+      🛒 ${listQuantity} Items  \n
+      💳 Payment Method: ${payment_method}  \n
+      🚚 Collection Address: ${collectionAddress}  \n`, // Note the two spaces before '\n' required for
+                                   // a line break to be rendered in the card.
+      subtitle: 'Total Price: €'+totalAmount,
+      title: 'Collection Scheduled: '+formattedListName,
+      buttons:[ new Button({
+        title: 'Receipt',
+        url: receiptUrl,
+      }),new Button({
+        title: 'Collection Info',
+        url: 'https://assistant.google.com/',
       })],
       image: new Image({
         url: 'https://www.netclipart.com/pp/m/308-3089576_gropronto-grocery-delivery.png',
@@ -309,7 +352,7 @@ var card=new BasicCard({
     var listQuantity = shoppingListDetails.list_quantity;
     var orderElements = this.formatOrderElements(items);
     var returnedDetails = {
-      deliveryAddress: collectionAddress,
+      collectionAddress: collectionAddress,
       stripeCustomer_id: stripeCustomer_id,
       user_id: user_id,
       userName: userName,

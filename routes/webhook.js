@@ -187,6 +187,58 @@ router.post("/api/webhook", express.json(), (req, res) => {
 
       if (paymentIntent.status == "succeeded") {
         console.log("Payment status success");
+        // New 
+
+        saveOrderToDB(returnedDetails, platform_type, conv_order_time, conv_order_date);
+        if (platform_type == "google") {
+          console.log("success google");
+          const conv = agent.conv();
+
+          conv.ask(
+            new SimpleResponse({
+              speech: `Collection Scheduled Successfully. `,
+              text: "Collection Scheduled Successfully.",
+            })
+          );
+          var orderSummary = ordersActions.createGoogleCollectionResponse(
+            paymentIntent,
+            returnedDetails
+          );
+          conv.ask(orderSummary);
+          agent.add(conv);
+        } else if (platform_type == "facebook") {
+          //Facebook Response
+          console.log("Payment status success");
+          facebook_payload = createFacebookReceipt(
+            paymentIntent,
+            returnedDetails,
+            "3178982578828059"
+          );
+          //Send Payload receipt via facebook
+          axios
+            .post(
+              `https://graph.facebook.com/v2.6/me/messages?access_token=${process.env.FACEBOOK_PAGE_ACCESS_TOKEN}`,
+              facebook_payload
+            )
+            .then(function (response) {
+              console.log("sent successfully" + response);
+              agent.add(
+                "More order information can be found on the SmartGrocery Dashboard!"
+              );
+            });
+        }
+
+
+
+
+
+
+
+
+
+
+
+        // End of New 
         //Payload receipt
         facebook_payload = createFacebookCollectionReceipt(
           paymentIntent,
@@ -332,7 +384,7 @@ router.post("/api/webhook", express.json(), (req, res) => {
             address: deliveryAddress,
             summary: {
               subtotal: baseListPrice,
-              shipping_cost: 0.0,
+              shipping_cost: 1.50,
               total_tax: 0.0,
               total_cost: totalAmount,
             },
@@ -490,7 +542,6 @@ router.post("/api/webhook", express.json(), (req, res) => {
     console.log("PARAMS YO" + JSON.stringify(agent.parameters))
     let conv = agent.conv();
     var product_name = agent.parameters.foodingredients;
-    // Agent Parameters will have list name AND OPTIONALLY a type of recipe
 
     //First find user UID
     var user;
@@ -507,7 +558,7 @@ router.post("/api/webhook", express.json(), (req, res) => {
     console.log("NAME: " + changes.product_name)
     console.log("Number: " + changes.change_amount)
 
-    return inventoryActions.updateInventory(user.uid, changes).then((result) => {
+    return inventoryActions.updateSingleItem(user.uid, changes).then((result) => {
       if (result.updated_inventory == "N/a") {
         agent.add(`Couldn't find any ${product_name} in your inventory.`);
 

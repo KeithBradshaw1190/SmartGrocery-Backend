@@ -4,6 +4,7 @@ let userInventoryDoc = fb.db.collection("user_inventory");
 
 module.exports = {
     createInventory: async function (userID, inventoryData) {
+        //this adds a default threshold to differentiate between a user not picking a threshold
         var invBeforeThresh=inventoryData.current_inventory;
         for (var i = 0; i < invBeforeThresh.length; i++) {
            if (invBeforeThresh[i].threshold){
@@ -70,7 +71,7 @@ module.exports = {
             }
         }
     },
-    updateInventory: async function (userID, changes) {
+    updateSingleItem: async function (userID, changes) {
         var productName = changes.product_name;
         var changeAmount = changes.change_amount;
 
@@ -86,6 +87,8 @@ module.exports = {
                         throw "Document does not exist!";
                     }
                     var inventoryFromDB = doc.data().current_inventory;
+
+                    
                     console.log("searching for " + (productName ) + " in inventory From DB:" + JSON.stringify(inventoryFromDB));
 
                     //   Search for the productname
@@ -168,6 +171,28 @@ module.exports = {
 
             })
 
+    },
+    updateMultipleItems:async function (userID, productsToAdd) {
+        //Add a default threshold
+      var invAfterThresh =addDefaultThereshold(invBeforeThresh);
+        //We need to match the products to add to any existing items 
+
+        //Adjuct quantity
+
+        //Compare threshold 
+
+        //From there add any new items
+    },
+    addDefaultThereshold(inventory){
+        var invBeforeThresh=inventory;
+        for (var i = 0; i < invBeforeThresh.length; i++) {
+           if (invBeforeThresh[i].threshold){
+               return
+           }else{
+            invBeforeThresh[i].threshold=-1
+           }
+        }
+        return invBeforeThresh
     }
 
 }

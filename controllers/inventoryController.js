@@ -177,7 +177,7 @@ module.exports = {
             })
 
     },
-    updateMultipleItems: async function (userID, newData) {
+    updateMultipleItems: async function (userID, newData,additionalInfo) {
         //Add a default threshold
         var inventoryToAdd = newData
         console.log("inventoryToAdd")
@@ -189,86 +189,38 @@ module.exports = {
         var currentInv = (await fetchInventory).inventory_data.current_inventory;
 
         //We need to match the products to add to any existing items
-        var fingerscrossed = this.checkAndAdd(currentInv, newInvAfterThresh);
+        var inventoryToSave = this.checkAndAdd(currentInv, newInvAfterThresh);
 
-        console.log("fingerscrossed  " + JSON.stringify(fingerscrossed))
-        // for(var i=0;i<newInvAfterThresh.length; i++){
-        //     var tempNewTitle=newInvAfterThresh[i].title
-        //     var tempNewQuantity=newInvAfterThresh[i].quantity
+        console.log("inventoryToSave  " + JSON.stringify(inventoryToSave))
+        //Overwite inventorywith the following document
+        var completeDocument = {
+            uid: userID,
+            order_source: additionalInfo.order_source,
+            current_inventory: inventoryToSave,
+            order_submitted_on: "today",
+            last_order_received_on: additionalInfo.last_order_received_on,
+        };
 
-        //     var tempNewQuantity=newInvAfterThresh[i].title
-        //     var inventoryToSave=[];
-        //     currentInv.map(function(prd) {
-        //         if (prd.title == tempNewTitle) {
-        //             console.log("Prev Quantity"+prd.quantity)
+        return userInventoryDoc.doc(userID).set(completeDocument)
+            .then((resp) => {
+                console.log("updateMultipleItems added!");
+                return {
+                    success: true,
+                    message: "Inventory updated successfully: ",
+                    inventory_data: resp,
+                    inventory_already_exists: true
 
-        //             prd.quantity=Number(prd.quantity+tempNewQuantity)
-        //             console.log("new Quantity"+prd.quantity)
-        //             console.log("Found the same item title current "+prd.title+ " new title "+tempNewTitle)
-        //             inventoryToSave.push(prd)
-        //         }
-        //         // }else{
-        //         //     console.log("Adding a new item")
-        //         //     inventoryToSave.push(newInvAfterThresh[i])
-        //         //   }
+                }
 
-        //     });
-
-
-
-        //     // if (currentInv.some((e,index) => e.title === tempNewTitle)) {
-        //     //   console.log("Found the same item"+index)
-        //     //   }else{
-        //     //     console.log("did not find the same item")
-
-        //     //   }
-        // }
+            }
+            )
+            .catch((err) => {
+                console.log(err);
+                return err
+            });
 
 
 
-        console.log("INVTOSAVE" + JSON.stringify(inventoryToSave))
-
-        // function to get the value of score key from scores array for matching random code.
-        // const getProductTitleFromNewInv = () => {
-        //     console.log("Called getProductTitleFromNewInv")
-        //     console.log(newInvAfterThresh.length)
-        //     console.log("Called currentInv")
-        //     console.log(JSON.stringify(currentInv))
-        //     let result = newInvAfterThresh.filter(o1 => currentInv.some(o2 => o1.title === o2.title));
-
-        //     // const tempItem = newInvAfterThresh[index];
-        //         console.log("result"+JSON.stringify(result))
-
-        //         // const result = currentInv.map(tempItem => {
-        //         //     const title = tempItem.title;
-        //         //     // const score = getProductTitleFromNewInv(title);
-        //         //     console.log("title"+title)
-        //         //         return title
-
-        //         // });
-        //         // // 
-        //         // if (tempItem.title === result) {
-        //         //     console.log("Matched the new title " +tempItem.title+" with curent title"+result )
-        //         //     return tempItem.title;
-        //         // }
-        //         // else{
-        //         //     console.log("Did not Matched the new title " +tempItem.title+" with curent title"+result )
-
-        //         // }
-
-
-        // }
-
-        // getProductTitleFromNewInv();
-
-        //  console.log(result);
-
-
-        //Adjuct quantity
-
-        //Compare threshold 
-
-        //From there add any new items
     },
     addDefaultThereshold(inventory) {
         var invBeforeThresh = inventory;
@@ -304,7 +256,10 @@ module.exports = {
 
     // If an object *is* found add this object's quantity to it...
     if (found) {
-      found.quantity += quantity;
+        console.log("Found"+found)
+        console.log("Adding this quantity to the above "+quantity)
+
+      found.quantity += Number(quantity);
 
     // ...otherwise push a copy of the object to out
     } else {

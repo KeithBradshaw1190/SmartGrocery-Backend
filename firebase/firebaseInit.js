@@ -5,6 +5,7 @@ if (process.env.NODE_ENV !== 'production') {
     require('dotenv').config();
 }
 require("firebase/auth");
+require("firebase/app");
 require("firebase/firestore");
 require("firebase/analytics");
 const firebase = require('firebase');

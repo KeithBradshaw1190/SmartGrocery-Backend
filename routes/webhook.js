@@ -481,16 +481,20 @@ router.post("/api/webhook", express.json(), (req, res) => {
             order_source: deliveryData.order_source,
             current_inventory: deliveryData.items_info,
             order_submitted_on: "today",
-            order_received_on: deliveryData.delivery_date,
+            last_order_received_on: deliveryData.delivery_date,
           };
           return inventoryActions.createInventory(data.user_id, newInventory).then((result) => {
 
             if (result.inventory_already_exists==true){
+              var additionalData={
+                order_source:deliveryData.order_source,
+                last_order_received_on:deliveryData.delivery_date
+              }
               console.log("Inventory exists already, thats gucci")
               var productData = newInventory.current_inventory
               console.log("Product data"+JSON.stringify(productData))
 
-              inventoryActions.updateMultipleItems(data.user_id,productData)
+              inventoryActions.updateMultipleItems(data.user_id,productData,additionalData)
             }
             agent.add("Added to your inventory!");
 
